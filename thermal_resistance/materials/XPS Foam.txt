@@ -1,0 +1,2 @@
+name = Extruded Polystyrene (XPS)
+k = 0.032
