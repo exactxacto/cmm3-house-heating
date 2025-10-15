@@ -10,7 +10,6 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import itertools
 import numpy as np
-from mpl_toolkits.mplot3d import Axes3D
 
 #find repo root (base folder)
 def repo_root() -> Path:
@@ -141,7 +140,7 @@ def sweep_combinations(combo, ranges, steps=10, out_folder="out"):
 
     #save numerical results to txt for comparision/validation
     #creates name based on combination of results
-    txt_file = out_path / f"R_combo_{'_'.join(combo)}.txt"
+    txt_file = out_path / f"R_results_{'_'.join(combo)}.txt"
     with open(txt_file, "w") as f:
         header = "\t".join([f"{m}_thickness(m)" for m in combo]) + "\tR(m²K/W)\n"
         f.write(header)
@@ -216,14 +215,6 @@ if __name__ == "__main__":
     #example 3 material sweep (Iteration graph and results txt)
     sweep_combinations(
         combo=("Expanded Polystyrene (EPS)", "mineral_wool", "Polyurethane (PUR)"),
-        ranges=[(0.05, 0.2), (0.05, 0.1), (0.05, 0.1)],  # PUR varies 0.05–0.2, XPS varies 0.05–0.1
+        ranges=[(0.05, 0.2), (0.05, 0.1), (0.05, 0.1)],
         steps=10
     )
-    
-    #example 2 material sweep (3d graph and results txt)
-    sweep_combinations(
-        combo=("Expanded Polystyrene (EPS)", "mineral_wool"),
-        ranges=[(0.05, 0.2), (0.05, 0.1)],  # PUR varies 0.05–0.2, XPS varies 0.05–0.1
-        steps=15
-    )
-
