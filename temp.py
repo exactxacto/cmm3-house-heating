@@ -1,181 +1,244 @@
-# -*- coding: utf-8 -*-
-# thermal_comfort_model_with_plot.py
+"""
+thermal_comfort_model_REALDATA_v2.py
+
+PURPOSE:
+    Simulate indoor thermal comfort using real or synthetic hourly outdoor
+    temperature data (Edinburgh 2023). The model uses a lumped thermal mass
+    ODE with thermostat-controlled heating. It finds the insulation thickness
+    that maximizes comfort hours and minimizes heating energy.
+
+REQUIREMENTS:
+    pip install numpy pandas matplotlib
+"""
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from typing import Tuple, Optional
-from scipy.optimize import minimize_scalar
 
-# (Reuse compute_R_total, simulate_lumped_model, comfort_metrics, objective_insulation, optimize_insulation from earlier)
-# I’ll re-include minimal needed here plus plotting.
 
+# ---------------------------------------------------------
+# 1. THERMAL PHYSICS FUNCTIONS
+# ---------------------------------------------------------
 def compute_R_total(insulation_thickness_m: float,
                     k_insulation: float,
-                    base_R_other_layers: float = 0.2) -> float:
-    """R per area (m2K/W)."""
+                    base_R_other_layers: float = 0.25) -> float:
+    """
+    Compute total wall thermal resistance (R-value, m²·K/W):
+        R_total = R_base + thickness / k
+    """
     R_ins = insulation_thickness_m / k_insulation
     return base_R_other_layers + R_ins
+
 
 def simulate_lumped_model(T_out_series: pd.Series,
                           insulation_thickness_m: float,
                           area_m2: float,
                           k_insulation: float,
                           C_total: float,
-                          Q_heating_func=None,
                           T_init: Optional[float] = None,
-                          base_R_other_layers: float = 0.2) -> pd.Series:
+                          base_R_other_layers: float = 0.25,
+                          comfort_lower: float = 18.0,
+                          comfort_upper: float = 24.0,
+                          heater_power_W: float = 2000.0) -> Tuple[pd.Series, float, int]:
+    """
+    Simulates indoor temperature using 1st-order transient model:
+        C * dT_in/dt = (A/R_total)*(T_out - T_in) + Q_heating
+
+    Heating logic:
+        - Heater ON if T_in < comfort_lower (18°C)
+        - Heater OFF otherwise
+
+    Returns:
+        - Indoor temperature series
+        - Total heating energy used [kWh]
+        - Total heating-on hours [h]
+    """
+
     times = T_out_series.index
-    dt_hours = (times[1] - times[0]).total_seconds()/3600.0
-    dt = dt_hours * 3600.0  # seconds
+    dt_hours = (times[1] - times[0]).total_seconds() / 3600.0
+    dt = dt_hours * 3600.0  # seconds per time step
 
     R_per_area = compute_R_total(insulation_thickness_m, k_insulation, base_R_other_layers)
-    # heat exchange coefficient factor (1/s)
-    coeff = area_m2 / (R_per_area * C_total)
+    coeff = area_m2 / (R_per_area * C_total)  # 1/s
 
-    if T_init is None:
-        T0 = T_out_series.iloc[0]
-    else:
-        T0 = T_init
-
-    vals_out = T_out_series.values
-    N = len(vals_out)
-    T_in = np.zeros(N)
+    # Initial condition
+    T0 = T_out_series.iloc[0] if T_init is None else T_init
+    T_in = np.zeros(len(T_out_series))
     T_in[0] = T0
 
-    def Q_heating(i, T_i, T_out_i):
-        if Q_heating_func is None:
-            return 0.0
-        return Q_heating_func(i, T_i, T_out_i)
+    heater_on_hours = 0
+    heater_energy_Wh = 0.0
 
-    for i in range(1, N):
-        T_prev = T_in[i-1]
-        Tout_prev = vals_out[i-1]
-        q = Q_heating(i-1, T_prev, Tout_prev)
-        dTdt = coeff * (Tout_prev - T_prev) + (q / C_total)
+    for i in range(1, len(T_out_series)):
+        T_prev = T_in[i - 1]
+        Tout_prev = T_out_series.iloc[i - 1]
+
+        # Thermostat control
+        Q_heating = 0.0
+        if T_prev < comfort_lower:
+            Q_heating = heater_power_W  # ON
+            heater_on_hours += 1
+            heater_energy_Wh += heater_power_W * dt_hours
+
+        dTdt = coeff * (Tout_prev - T_prev) + (Q_heating / C_total)
         T_in[i] = T_prev + dTdt * dt
 
-    return pd.Series(T_in, index=times)
+    total_energy_kWh = heater_energy_Wh / 1000.0
+    return pd.Series(T_in, index=times), total_energy_kWh, heater_on_hours
 
+
+# ---------------------------------------------------------
+# 2. COMFORT METRICS + ITERATIVE OPTIMIZATION
+# ---------------------------------------------------------
+def comfort_metrics(T_in_series: pd.Series,
+                    comfort_lower: float = 18.0,
+                    comfort_upper: float = 24.0) -> dict:
+    """Calculate hours within and outside the comfort band."""
+    total = len(T_in_series)
+    comfy = ((T_in_series >= comfort_lower) & (T_in_series <= comfort_upper)).sum()
+    cold = (T_in_series < comfort_lower).sum()
+    hot = (T_in_series > comfort_upper).sum()
+    return {
+        "total_hours": int(total),
+        "comfortable_hours": int(comfy),
+        "heating_hours": int(cold),
+        "cooling_hours": int(hot),
+        "discomfort_fraction": 1.0 - comfy / total,
+    }
+
+
+def optimize_insulation_iterative(T_out_series: pd.Series,
+                                  area_m2: float,
+                                  k_insulation: float,
+                                  C_total: float,
+                                  base_R_other_layers: float = 0.25,
+                                  comfort_bounds: Tuple[float, float] = (18.0, 24.0),
+                                  thickness_range=np.arange(0.00, 0.41, 0.02)) -> dict:
+    """
+    Iterates over insulation thickness values to find the one giving
+    the maximum comfort hours (and record heating energy).
+    """
+    results = []
+
+    for thickness in thickness_range:
+        T_in, energy_kWh, hours_on = simulate_lumped_model(
+            T_out_series, thickness, area_m2, k_insulation, C_total,
+            base_R_other_layers=base_R_other_layers,
+            comfort_lower=comfort_bounds[0], comfort_upper=comfort_bounds[1]
+        )
+        metrics = comfort_metrics(T_in, comfort_lower=comfort_bounds[0], comfort_upper=comfort_bounds[1])
+        metrics['thickness_m'] = thickness
+        metrics['energy_kWh'] = energy_kWh
+        metrics['heater_hours'] = hours_on
+        metrics['T_in'] = T_in
+        results.append(metrics)
+
+    df_results = pd.DataFrame(results)
+    idx_best = df_results['comfortable_hours'].idxmax()
+    best = df_results.iloc[idx_best]
+
+    print(f"\n✅ Best insulation thickness: {best['thickness_m']:.3f} m")
+    print(f"Comfortable hours: {best['comfortable_hours']} of {len(T_out_series)}")
+    print(f"Heating energy: {best['energy_kWh']:.1f} kWh")
+    print(f"Heating ON hours: {best['heater_hours']}")
+
+    plt.figure(figsize=(8, 4))
+    plt.plot(df_results['thickness_m'], df_results['comfortable_hours'], '-o', color='tab:green')
+    plt.xlabel("Insulation Thickness (m)")
+    plt.ylabel("Comfortable Hours per Year")
+    plt.title("Comfort vs. Insulation Thickness")
+    plt.grid(True)
+    plt.show()
+
+    plt.figure(figsize=(8, 4))
+    plt.plot(df_results['thickness_m'], df_results['energy_kWh'], '-o', color='tab:red')
+    plt.xlabel("Insulation Thickness (m)")
+    plt.ylabel("Heating Energy (kWh)")
+    plt.title("Heating Energy vs. Insulation Thickness")
+    plt.grid(True)
+    plt.show()
+
+    return {
+        'best_thickness_m': best['thickness_m'],
+        'metrics': best,
+        'all_results': df_results,
+        'T_in_series': best['T_in']
+    }
+
+
+# ---------------------------------------------------------
+# 3. PLOTTING
+# ---------------------------------------------------------
 def plot_temperature_series(T_out: pd.Series,
                             T_in: pd.Series,
                             comfort_lower: float = 18.0,
                             comfort_upper: float = 24.0,
                             title: str = "Indoor vs Outdoor Temperature"):
-    """
-    Plot outdoor and indoor temperature, shading comfort band, 
-    and mark periods of discomfort.
-    """
-    plt.figure(figsize=(15,4))
-    plt.plot(T_out.index, T_out.values, label="Outdoor Temp (°C)", color='tab:blue', alpha=0.7)
-    plt.plot(T_in.index, T_in.values, label="Indoor Temp (°C)", color='tab:orange')
-
-    # shade comfort band
+    """Plot indoor/outdoor temperature and comfort band."""
+    plt.figure(figsize=(15, 4))
+    plt.plot(T_out.index, T_out.values, label="Outdoor Temp (°C)", color="tab:blue", alpha=0.7)
+    plt.plot(T_in.index, T_in.values, label="Indoor Temp (°C)", color="tab:orange")
     plt.fill_between(T_in.index, comfort_lower, comfort_upper,
-                     color='green', alpha=0.2, label=f"Comfort band {comfort_lower}–{comfort_upper} °C")
-
-    # optionally highlight times when indoor < lower or > upper
-    below = T_in < comfort_lower
-    above = T_in > comfort_upper
-    plt.scatter(T_in.index[below], T_in[below], color='blue', s=2, label="Too cold")
-    plt.scatter(T_in.index[above], T_in[above], color='red', s=2, label="Too hot")
-
-    plt.xlabel("Date / Time")
+                     color="green", alpha=0.2, label="Comfort band (18–24°C)")
+    plt.xlabel("Date")
     plt.ylabel("Temperature (°C)")
     plt.title(title)
     plt.legend()
     plt.tight_layout()
     plt.show()
 
-def example_with_plot_synthetic():
-    # synthetic outdoor for year, like before
-    rng = pd.date_range('2023-01-01', periods=24*365, freq='H')
-    day = rng.dayofyear.values
-    T_out = 8 + 7*np.sin(2*np.pi*(day - 170)/365) + 3*np.random.randn(len(rng))
-    T_out_series = pd.Series(T_out, index=rng)
 
-    # parameters
+# ---------------------------------------------------------
+# 4. MAIN FUNCTION WITH REAL OR SYNTHETIC DATA
+# ---------------------------------------------------------
+def example_with_real_or_synthetic_data():
+    """
+    Load Edinburgh 2023 hourly temperature data from CSV if available,
+    else generate synthetic data.
+    """
+    import os
+
+    csv_path = "C:/Users/yourname/Documents/edinburgh_2023_hourly_temps.csv"  # CHANGE THIS
+
+    if os.path.exists(csv_path):
+        print("✅ Using real temperature data from CSV...")
+        df = pd.read_csv(csv_path)
+        df["datetime"] = pd.to_datetime(df["datetime"])
+        df = df.set_index("datetime")
+        T_out_series = df["T_out"].asfreq("h").interpolate()
+    else:
+        print("⚠️ CSV file not found — generating synthetic Edinburgh-like temperature data...")
+        rng = pd.date_range("2023-01-01", "2023-12-31 23:00", freq="h")
+        day = rng.dayofyear.values
+        T_out = 8 + 7 * np.sin(2 * np.pi * (day - 170) / 365) + 3 * np.random.randn(len(rng))
+        T_out_series = pd.Series(T_out, index=rng)
+        print(f"✅ Synthetic data created for 2023 ({len(T_out_series)} hourly points).")
+
+    # Parameters
     area = 50.0
     k_ins = 0.04
     C_tot = 1.5e6
     base_R = 0.25
 
-    # pick a thickness, or optimize
-    opt = optimize_insulation(T_out_series, area, k_ins, C_tot, base_R,
-                              thickness_bounds=(0.0, 0.4), comfort_bounds=(18,24))
-    best_t = opt['best_thickness_m']
-    print("Best thickness (m):", best_t)
-    T_in_best = opt['T_in_series']
-    metrics = opt['metrics']
-    print("Comfort metrics:", metrics)
+    opt = optimize_insulation_iterative(T_out_series, area, k_ins, C_tot, base_R,
+                                        comfort_bounds=(18, 24))
+    best_t = opt["best_thickness_m"]
+    metrics = opt["metrics"]
 
-    # plot
-    plot_temperature_series(T_out_series, T_in_best, comfort_lower=18, comfort_upper=24,
-                            title=f"Indoor vs Outdoor, thickness={best_t:.3f} m")
-    return opt
+    print("\n--- FINAL RESULTS ---")
+    print(f"Optimal insulation thickness: {best_t:.3f} m")
+    print(f"Comfortable hours: {metrics['comfortable_hours']} of {metrics['total_hours']}")
+    print(f"Heating ON hours: {metrics['heater_hours']}")
+    print(f"Total heating energy: {metrics['energy_kWh']:.1f} kWh")
 
-# To integrate: import the previously defined optimize_insulation
-def optimize_insulation(T_out_series: pd.Series,
-                        area_m2: float,
-                        k_insulation: float,
-                        C_total: float,
-                        base_R_other_layers: float = 0.2,
-                        thickness_bounds: Tuple[float,float]=(0.0, 0.4),
-                        comfort_bounds: Tuple[float,float]=(18.0,24.0),
-                        maximize_comfort: bool = True) -> dict:
-    # objective as before
-    def obj_fn(t):
-        return objective_insulation(t, T_out_series, area_m2, k_insulation, C_total,
-                                    base_R_other_layers=base_R_other_layers,
-                                    comfort_bounds=comfort_bounds, maximize_comfort=maximize_comfort)
-    res = minimize_scalar(obj_fn, bounds=thickness_bounds, method='bounded', options={'xatol':1e-3})
-    best_t = res.x
-    T_in = simulate_lumped_model(T_out_series, best_t, area_m2, k_insulation, C_total,
-                                 Q_heating_func=None, T_init=None,
-                                 base_R_other_layers=base_R_other_layers)
-    metrics = comfort_metrics(T_in, comfort_lower=comfort_bounds[0], comfort_upper=comfort_bounds[1])
-    return {
-        'opt_result': res,
-        'best_thickness_m': best_t,
-        'metrics': metrics,
-        'T_in_series': T_in
-    }
+    plot_temperature_series(T_out_series, opt["T_in_series"],
+                            comfort_lower=18, comfort_upper=24,
+                            title=f"Indoor vs Outdoor (optimum thickness={best_t:.3f} m)")
 
-# (reuse objective_insulation, comfort_metrics from prior code)
 
-def objective_insulation(thickness_m: float,
-                         T_out_series: pd.Series,
-                         area_m2: float,
-                         k_insulation: float,
-                         C_total: float,
-                         base_R_other_layers: float = 0.2,
-                         comfort_bounds: Tuple[float,float] = (18.0, 24.0),
-                         maximize_comfort: bool = True) -> float:
-    if thickness_m < 0:
-        return 1e6
-    T_in = simulate_lumped_model(T_out_series, thickness_m, area_m2, k_insulation,
-                                 C_total, Q_heating_func=None, T_init=None,
-                                 base_R_other_layers=base_R_other_layers)
-    m = comfort_metrics(T_in, comfort_lower=comfort_bounds[0], comfort_upper=comfort_bounds[1])
-    if maximize_comfort:
-        return -m['comfortable_hours']
-    else:
-        return m['discomfort_fraction']
-
-def comfort_metrics(T_in_series: pd.Series,
-                    comfort_lower: float = 18.0,
-                    comfort_upper: float = 24.0) -> dict:
-    total = len(T_in_series)
-    comfy = ((T_in_series >= comfort_lower) & (T_in_series <= comfort_upper)).sum()
-    cold = (T_in_series < comfort_lower).sum()
-    hot = (T_in_series > comfort_upper).sum()
-    return {
-        'total_hours': int(total),
-        'comfortable_hours': int(comfy),
-        'heating_hours': int(cold),
-        'cooling_hours': int(hot),
-        'discomfort_fraction': 1.0 - comfy / total
-    }
-
+# ---------------------------------------------------------
+# RUN
+# ---------------------------------------------------------
 if __name__ == "__main__":
-    example_with_plot_synthetic()
+    example_with_real_or_synthetic_data()
