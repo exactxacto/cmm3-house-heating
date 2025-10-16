@@ -4,11 +4,10 @@ import matplotlib.pyplot as plt
 
 # Load R-values from file
 r_val = np.loadtxt('thermal_resistance/out/R_results_Expanded Polystyrene (EPS)_mineral_wool_Polyurethane (PUR).txt', usecols=(3,), skiprows=1)
-print(r_val)
 
 # Parameters
-C = 4.18  # J/K
-T0 = 5    # initial temperature
+C = 10  # J/K
+T0 = 25   # initial temperature
 
 def simulate(R):
     # Define the ODE for a given R
@@ -20,6 +19,7 @@ def simulate(R):
     t_span = (0, 28 * 24 * 3600)  # 28 days
     t_eval = np.linspace(t_span[0], t_span[1], 28 * 24 + 1)  # one point per hour
     sol = solve_ivp(dTdt, t_span, [T0], t_eval=t_eval)
+    print(sol.t)
     return sol
 
 # Plot results for each R
