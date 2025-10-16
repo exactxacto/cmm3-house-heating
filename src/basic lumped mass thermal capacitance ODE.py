@@ -2,8 +2,9 @@ import numpy as np
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 
+r_val = np.loadtxt('', usecols=(COLUMN_INDEX,))
 # Parameters
-R = 4.5      # K/W
+R = r_val     # K/W
 C = 4.18      # J/K
 T0 = 5        # initial temperature
 
