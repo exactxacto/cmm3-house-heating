@@ -13,24 +13,26 @@ T0 = 5    # initial temperature
 def simulate(R):
     # Define the ODE for a given R
     def dTdt(t, T):
-        T_out = np.sin(t / 10) * 10 + 20  # outside temperature varies sinusoidally
+        T_out = np.sin(t / (3600 * 12)) * 10 + 20  # one cycle every 24 hours
         return (T_out - T) / (R * C)
 
-    # Solve the ODE
-    t_span = (0, 100)
-    sol = solve_ivp(dTdt, t_span, [T0], t_eval=np.linspace(*t_span, 500))
+    # Solve the ODE for 28 days (in seconds)
+    t_span = (0, 28 * 24 * 3600)  # 28 days
+    t_eval = np.linspace(t_span[0], t_span[1], 28 * 24 + 1)  # one point per hour
+    sol = solve_ivp(dTdt, t_span, [T0], t_eval=t_eval)
     return sol
 
 # Plot results for each R
 plt.figure()
 for i, R in enumerate(r_val):
     sol = simulate(R)
-    plt.plot(sol.t, sol.y[0], label=f"Room Temp (R={R:.2f})")
+    plt.plot(sol.t / 3600, sol.y[0], label=f"Room Temp (R={R:.2f})")
 
-plt.plot(sol.t, np.sin(sol.t / 10) * 10 + 20, 'k--', label="Outside Temp")
-plt.xlabel("Time [s]")
+# Plot outside temperature
+plt.plot(sol.t / 3600, np.sin(sol.t / (3600 * 12)) * 10 + 20, 'k--', label="Outside Temp")
+plt.xlabel("Time [hours]")
 plt.ylabel("Temperature [°C]")
-plt.title("Room Temperature vs Time for Different R Values")
+plt.title("Room Temperature vs Time over 28 Days")
 plt.legend()
 plt.grid(True)
 plt.show()
