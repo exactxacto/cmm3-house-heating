@@ -17,7 +17,7 @@ try:
 except OSError:
     print ("File not found. Please ensure the solar irradiance data file exists at the specified path.")
     r_val = np.array([])  # Assign an empty array if file not found
-    
+
 # Parameters
 width_house = 9.0  # meters
 length_house = 4.0 # meters
@@ -35,10 +35,25 @@ R_conv_outside = 1 / (h_o * area_wall) # outside convective resistance
 R_conv_inside = 1 / (h_i * area_wall) # inside convective resistance
 R_eff = R_conv_outside + R_conv_inside + R_wall 
 
+n_hours = len(q_val)
+time_hours = np.arange(n_hours)          # time in hours
+time_seconds = time_hours * 3600         # convert to seconds for Fourier-based functions
+
+#Insert Fourier series of T_amb here
+
+T_amb_hourly = T_amb(time_seconds)
+
 # Calculations
-def outside_temp(t):
-    T_amb = np.sin(t / (3600 * 12)) * 10 + 20  # one cycle every 24 hours, REPLACE WITH ACTUAL REGRESSION EQUATION
-    for i in q_val:
-        q = i
-        T_out_eff = T_amb + q * R_conv_outside
-    return T_out_eff
+def calculate_T_out_eff(t):  #Returns a 2D array [n_hours x n_materials] of effective wall temperatures.
+    n_hours = len(q_val)
+    n_mat = len(r_val)
+    T_out_eff = np.zeros((n_hours, n_mat))
+    for j, R_wall in enumerate(r_val):
+        R_eff = R_conv_outside + R_conv_inside + R_wall
+        T_out_eff[:, j] = T_amb_hourly + q_val * R_conv_outside
+    return T_out_eff, R_eff
+
+T_out_eff = calculate_T_out_eff(r_val, q_val, T_amb_hourly)
+time_index = pd.RangeIndex(start=0, stop=n_hours, step=1, name="hour")
+T_out_df = pd.DataFrame(T_out_eff, index=time_index, columns=[f"R={R:.2f}" for R in r_val])
+
