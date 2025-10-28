@@ -13,7 +13,7 @@ density_air = 1.225  # kg/m^3
 mass_air = vol_house * density_air  # kg
 C = mass_air * 1005  # J/K
 
-T0 = 25   # initial temperature
+T0 = 25   # initial temperature, replace with desired initial temperature
 
 def simulate(R_eff):
 # Define the ODE for a given R

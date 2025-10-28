@@ -5,11 +5,19 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Load R-values for wall from file
-r_val = np.loadtxt('thermal_resistance/out/R_results_Expanded Polystyrene (EPS)_mineral_wool_Polyurethane (PUR).txt', usecols=(3,), skiprows=1)
+try:
+    r_val = np.loadtxt('thermal_resistance/out/R_results_Expanded Polystyrene (EPS)_mineral_wool_Polyurethane (PUR).txt', usecols=(3,), skiprows=1)
+except OSError:
+    print ("File not found. Please ensure the R-values file exists at the specified path.")
+    r_val = np.array([])  # Assign an empty array if file not found
 
 # Load solar irradiance data from file
-q_val = range(0, 500, 50)  # PLACEHOLDER for solar irradiance values in Watts/m2
-
+try:
+    q_val = np.loadtxt('solar_irradiance/out/solar_irradiance_data.txt', usecols=(1,), skiprows=1)
+except OSError:
+    print ("File not found. Please ensure the solar irradiance data file exists at the specified path.")
+    r_val = np.array([])  # Assign an empty array if file not found
+    
 # Parameters
 width_house = 9.0  # meters
 length_house = 4.0 # meters
