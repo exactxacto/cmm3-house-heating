@@ -2,6 +2,9 @@ import numpy as np
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 
+# Load R-values for wall from file
+r_val = np.loadtxt('thermal_resistance/out/R_results_Expanded Polystyrene (EPS)_mineral_wool_Polyurethane (PUR).txt', usecols=(3,), skiprows=1)
+
 # Load solar irradiance data from file
 q_val = range(0, 500, 50)  # PLACEHOLDER for solar irradiance values in Watts/m2
 
@@ -16,12 +19,11 @@ area_wall = 2 * height_house * (length_house + width_house)  # m2
 # Thermal properties
 h_o = 35 # outside convective heat transfer coefficient W/m2K
 h_i = 8 # inside convective heat transfer coefficient W/m2K
-R_wall = 5.3 # PLACEHOLDER for testing code
+R_wall = 5.3 # PLACEHOLDER for testing code. Replace with i in r_val.
 
 R_conv_outside = 1 / (h_o * area_wall) # outside convective resistance
 R_conv_inside = 1 / (h_i * area_wall) # inside convective resistance
 R_eff = R_conv_outside + R_conv_inside + R_wall 
-
 
 # Calculations
 def outside_temp(t):
@@ -30,12 +32,3 @@ def outside_temp(t):
         q = i
         T_out_eff = T_amb + q * R_conv_outside
     return T_out_eff
-
-for t in range(0, 86400, 3600):
-    print(f"At time {t} seconds, effective outside temperature is {outside_temp(t)} °C")
-
-plt.plot(range(0, 86400, 3600), [outside_temp(t) for t in range(0, 86400, 3600)])
-plt.xlabel('Time (seconds)')
-plt.ylabel('Effective Outside Temperature (°C)')
-
-plt.show()
