@@ -13,6 +13,8 @@ vol_house = width_house * length_house * height_house  # m^3
 density_air = 1.225  # kg/m^3
 mass_air = vol_house * density_air  # kg
 C = mass_air * 1005  # J/K
+print (C)
+
 
 R = 5.194
 
@@ -30,4 +32,4 @@ def simulate(R):
     sol = solve_ivp(dTdt, t_span, [T0], t_eval=t_eval)
     print(sol.t)
 
-plt.plot(sol.t / 3600, np.sin(sol.t / (3600 * 12)) * 10 + 20, 'k--', label="Outside Temp")
+#plt.plot(sol.t / 3600, np.sin(sol.t / (3600 * 12)) * 10 + 20, 'k--', label="Outside Temp")
