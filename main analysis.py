@@ -144,7 +144,7 @@ def solve_root_finding_problem(interp_comfort, interp_cost, r_min, r_max):
     Solves the specific design question using root-finding.
     [cite_start]This is one of the required numerical methods. [cite: 36, 68]
     """
-    print(f"\n--- ✅ Root-Finding Analysis ---")
+    print(f"\n--- Root-Finding Analysis ---")
     print(f"Design Target: {TARGET_COMFORT_HOURS} comfortable hours.")
     print("Solving for the *exact* R-value needed...")
 
@@ -160,14 +160,14 @@ def solve_root_finding_problem(interp_comfort, interp_cost, r_min, r_max):
         # Now that we have the exact R-value, find its cost
         solved_cost = interp_cost(solved_r_value)
         
-        print("\n--- 🏆 Root-Finding Solution ---")
+        print("\n--- Root-Finding Solution ---")
         print(f"To hit the target, the *exact* R-value required is: {solved_r_value:.3f} m²K/W")
         print(f"The interpolated cost for this R-value is: £{solved_cost:.2f}")
         
         return solved_r_value, solved_cost
 
     except ValueError:
-        print(f"\n--- ❌ Root-Finding Error ---")
+        print(f"\n--- Root-Finding Error ---")
         print(f"Error: Could not find a solution.")
         print(f"The target of {TARGET_COMFORT_HOURS} hours may be")
         print(f"outside the achievable comfort range of your data.")
