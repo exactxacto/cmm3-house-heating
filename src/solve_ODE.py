@@ -16,17 +16,22 @@ C = mass_air * 1005  # J/K
 T0 = 25   # initial temperature, replace with desired initial temperature
 
 def simulate(R_eff):
-# Define the ODE for a given R
+    T_out_series = T_out_df[R_label].values       # hourly external temperatures
+    R_eff = R_eff_dict[R_label]                   # total resistance for this wall
+    
     def dTdt(t, T):
-        T_out_eff = #load T_out_eff from simulate_solar_irradiance.py
-        return ((T_out_eff - T) / (R_eff * C))
+        # Convert simulation time (s) → hours for indexing
+        hour = t / 3600
+        # Linear interpolation between hourly values
+        T_out_t = np.interp(hour, time_hours, T_out_series)
+        return (T_out_t - T) / (R_eff * C)
 
-    # Solve the ODE for 28 days (in seconds)
-    t_span = (0, 28 * 24 * 3600)  # 28 days
-    t_eval = np.linspace(t_span[0], t_span[1], 28 * 24 + 1)  # one point per hour
-    sol = solve_ivp(dTdt, t_span, [T0], t_eval=t_eval)
-    print(sol.t)
+     # One-year simulation (8760 hours)
+    t_span = (0, n_hours * 3600)
+    t_eval = np.linspace(t_span[0], t_span[1], n_hours)
+    sol = solve_ivp(dTdt, t_span, [T0], t_eval=t_eval, method='RK45') #solves using Runge-Kutta method
+
     return sol
 
-for i, R in enumerate(r_val):
-    sol = simulate(R)
+for R_label in columns:
+    sol = simulate(R_label)
