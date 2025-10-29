@@ -15,7 +15,9 @@ C = mass_air * 1005  # J/K
 
 T0 = 25   # initial temperature, replace with desired initial temperature
 
-def simulate(R_eff):
+results = {}
+
+def simulate(R_label):
     T_out_series = T_out_df[R_label].values       # hourly external temperatures
     R_eff = R_eff_dict[R_label]                   # total resistance for this wall
     
@@ -31,7 +33,14 @@ def simulate(R_eff):
     t_eval = np.linspace(t_span[0], t_span[1], n_hours)
     sol = solve_ivp(dTdt, t_span, [T0], t_eval=t_eval, method='RK45') #solves using Runge-Kutta method
 
-    return sol
+    T_hourly = sol.y[0]           # shape (n_hours,)
+    t_hourly = sol.t / 3600       # hours
+    return t_hourly, T_hourly
 
 for R_label in columns:
-    sol = simulate(R_label)
+  t_hourly, T_hourly = simulate(R_label)
+    results[R_label] = {
+        'time_hours': t_hourly,
+        'T_hourly': T_hourly,
+        'R_eff': R_eff_dict[R_label]
+    }
