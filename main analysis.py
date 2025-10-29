@@ -13,7 +13,7 @@ def solve_root_finding_problem(results_df):
     all_materials = results_df['material_type'].unique()
     solutions = []
 
-    print("\n--- ✅ Root Finding Analysis ---")
+    print("\n---Root Finding Analysis ---")
     print(f"Design Target: {TARGET_COMFORT_HOURS} comfortable hours.")
     print("Finding cheapest solution for *all* materials...")
 
@@ -27,7 +27,7 @@ def solve_root_finding_problem(results_df):
             continue
 
         # 2. Define the root-finding function
-        #    We want to find 't' where comfort_func(t) - TARGET = 0
+        #    find 't' where comfort_func(t) - TARGET = 0
         def comfort_target_function(thickness):
             return comfort_func(thickness) - TARGET_COMFORT_HOURS
 
