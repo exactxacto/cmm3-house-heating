@@ -37,10 +37,12 @@ def simulate(R_label):
     t_hourly = sol.t / 3600       # hours
     return t_hourly, T_hourly
 
+output_rows = []
 for R_label in columns:
-  t_hourly, T_hourly = simulate(R_label)
-    results[R_label] = {
-        'time_hours': t_hourly,
-        'T_hourly': T_hourly,
-        'R_eff': R_eff_dict[R_label]
-    }
+    t_hourly, T_hourly = simulate(R_label)
+    R_val = R_eff_dict[R_label]
+    row_data = np.concatenate((np.array([R_val]), T_hourly))
+    output_rows.append(row_data)
+
+results_array = np.vstack(output_rows)
+
