@@ -63,10 +63,20 @@ def calculate_T_out_eff(r_val, q_val, T_amb_hourly):
 
 T_out_eff, R_eff = calculate_T_out_eff(r_val, q_val, T_amb_hourly)
 
+<<<<<<< HEAD
 time_index = pd.RangeIndex(start=0, stop=n_hours, step=1, name="hour")
 T_out_df = pd.DataFrame(T_out_eff, index=time_index, columns=[f"R={R:.2f}" for R in r_val])
 T_out_df.attrs['R_eff'] = dict(zip(T_out_df.columns, R_eff))
 
 
+=======
+T_out_eff, R_eff = calculate_T_out_eff(r_val, q_val, T_amb_hourly)
+
+time_index = pd.RangeIndex(start=0, stop=n_hours, step=1, name="hour")
+columns = [f"R={R:.2f}" for R in r_val]
+
+T_out_df = pd.DataFrame(T_out_eff, index=time_index, columns=columns)
+T_out_df.attrs['R_eff'] = dict(zip(columns, R_eff))
+>>>>>>> 0e8dc5adcd695ec205bf0f571d0f15b6bad7b8ba
 
 
