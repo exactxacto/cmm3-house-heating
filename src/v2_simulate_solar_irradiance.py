@@ -4,12 +4,7 @@ from scipy.interpolate import interp1d
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Load R-values for wall from file
-try:
-    r_val = np.loadtxt('thermal_resistance/out/R_results_Expanded Polystyrene (EPS)_mineral_wool_Polyurethane (PUR).txt', usecols=(3,), skiprows=1)
-except OSError:
-    print ("File not found. Please ensure the R-values file exists at the specified path.")
-    r_val = np.array([])  # Assign an empty array if file not found
+r_val = np.loadtxt('thermal_resistance/out/R_results_Expanded Polystyrene (EPS)_mineral_wool_Polyurethane (PUR).txt', usecols=(3,), skiprows=1)
 
 # Load solar irradiance data from file
 try:
@@ -40,23 +35,38 @@ n_hours = len(q_val)
 time_hours = np.arange(n_hours)          # time in hours
 time_seconds = time_hours * 3600         # convert to seconds for Fourier-based functions
 
-#Insert Fourier series of T_amb here
+def T_amb(t_hours):
+    return (
+        (9.8356 + 5.5981 * np.sin((2*np.pi * t_hours / 8760) - 1.9463))
+        + (2.0182 + 1.2878 * np.sin((2*np.pi * t_hours / 8760) - 1.4305))
+          * np.sin((2*np.pi * t_hours / 24) - 1.5510)
+        + -0.1897 * np.sin((2*np.pi * t_hours / 12) - 0.6680)
+        + -0.0696 * np.sin((2*np.pi * t_hours / 8) - 0.6461)
+    )
 
-T_amb_hourly = T_amb(time_seconds)
+# Evaluate hourly
+T_amb_hourly = T_amb(time_hours)
+
 
 # Calculations
-def calculate_T_out_eff(t):  #Returns a 2D array [n_hours x n_materials] of effective wall temperatures.
+def calculate_T_out_eff(r_val, q_val, T_amb_hourly):
     n_hours = len(q_val)
     n_mat = len(r_val)
     T_out_eff = np.zeros((n_hours, n_mat))
-    for j, R_wall in enumerate(r_val):
-        R_eff = R_conv_outside + R_conv_inside + R_wall
-        T_out_eff[:, j] = T_amb_hourly + q_val * R_conv_outside
-    return T_out_eff, R_eff
+    R_eff_all = np.zeros(n_mat)
 
-T_out_eff = calculate_T_out_eff(r_val, q_val, T_amb_hourly)
+    for j, R_wall in enumerate(r_val):
+        R_eff_all[j] = R_conv_outside + R_conv_inside + R_wall
+        T_out_eff[:, j] = T_amb_hourly + q_val * R_conv_outside
+
+    return T_out_eff, R_eff_all
+
+T_out_eff, R_eff = calculate_T_out_eff(r_val, q_val, T_amb_hourly)
+
 time_index = pd.RangeIndex(start=0, stop=n_hours, step=1, name="hour")
 T_out_df = pd.DataFrame(T_out_eff, index=time_index, columns=[f"R={R:.2f}" for R in r_val])
+T_out_df.attrs['R_eff'] = dict(zip(T_out_df.columns, R_eff))
+
 
 
 
