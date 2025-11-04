@@ -2,6 +2,26 @@ import numpy as np
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 
+from v2_simulate_solar_irradiance import T_out_df, R_eff_dict, time_hours, n_hours
+
+try:
+    T_out_df  # defined earlier
+except NameError:
+    raise RuntimeError("T_out_df not found — run the generation code first.")
+
+columns = list(T_out_df.columns)
+n_hours = len(T_out_df.index)
+time_hours = np.asarray(T_out_df.index)           # 0..n_hours-1
+
+# Extract R_eff mapping (dictionary keyed by column names)
+R_eff_dict = T_out_df.attrs.get('R_eff', None)
+if R_eff_dict is None:
+    try:
+        R_eff  # numpy array from previous code
+        R_eff_dict = dict(zip(columns, R_eff))
+    except NameError:
+        raise RuntimeError("R_eff metadata not found. Put R_eff into T_out_df.attrs['R_eff'] or define R_eff array.")
+
 # Parameters
 width_house = 9.0  # meters
 length_house = 4.0 # meters
@@ -12,37 +32,42 @@ vol_house = width_house * length_house * height_house  # m^3
 density_air = 1.225  # kg/m^3
 mass_air = vol_house * density_air  # kg
 C = mass_air * 1005  # J/K
+T0 = 25   # initial indoor temperature [°C]
 
-T0 = 25   # initial temperature, replace with desired initial temperature
+def simulate_column(R_label, col_index):
+    T_out_series = T_out_df[R_label].to_numpy()   # shape (n_hours,)
+    R_eff_total = R_eff_dict[R_label]             # scalar total resistance for that column
 
-results = {}
+def dTdt(t, T):
+    hour = t / 3600.0
+    T_out_t = np.interp(hour, time_hours, T_out_series)
+    return (T_out_t - T) / (R_eff_total * C)
 
+# --- Simulation function ---
 def simulate(R_label):
-    T_out_series = T_out_df[R_label].values       # hourly external temperatures
-    R_eff = R_eff_dict[R_label]                   # total resistance for this wall
-    
+    T_out_series = T_out_df[R_label].values
+    R_eff = R_eff_dict[R_label]
+
     def dTdt(t, T):
-        # Convert simulation time (s) → hours for indexing
         hour = t / 3600
-        # Linear interpolation between hourly values
         T_out_t = np.interp(hour, time_hours, T_out_series)
         return (T_out_t - T) / (R_eff * C)
 
-     # One-year simulation (8760 hours)
+    # One-year simulation (8760 hours)
     t_span = (0, n_hours * 3600)
-    t_eval = np.linspace(t_span[0], t_span[1], n_hours)
-    sol = solve_ivp(dTdt, t_span, [T0], t_eval=t_eval, method='RK45') #solves using Runge-Kutta method
+    t_eval = np.arange(0, n_hours * 3600, 3600)
+    sol = solve_ivp(dTdt, t_span, [T0], t_eval=t_eval, method='RK45')
 
-    T_hourly = sol.y[0]           # shape (n_hours,)
-    t_hourly = sol.t / 3600       # hours
+    T_hourly = sol.y[0]
+    t_hourly = sol.t / 3600
     return t_hourly, T_hourly
 
+# --- Run simulations for all materials ---
 output_rows = []
 for R_label in columns:
     t_hourly, T_hourly = simulate(R_label)
     R_val = R_eff_dict[R_label]
-    row_data = np.concatenate((np.array([R_val]), T_hourly))
+    row_data = np.concatenate(([R_val], T_hourly))
     output_rows.append(row_data)
 
-results_array = np.vstack(output_rows)
-
+results_array = np.vstack(output_rows)  # shape = (n_materials, n_hours + 1)
