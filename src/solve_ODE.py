@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
+import pandas as pd
 
 from v2_simulate_solar_irradiance import T_out_df, R_eff_dict, time_hours, n_hours
 
@@ -34,9 +35,6 @@ mass_air = vol_house * density_air  # kg
 C = mass_air * 1005  # J/K
 T0 = 25   # initial indoor temperature [°C]
 
-def simulate_column(R_label, col_index):
-    T_out_series = T_out_df[R_label].to_numpy()   # shape (n_hours,)
-    R_eff_total = R_eff_dict[R_label]             # scalar total resistance for that column
 
 def dTdt(t, T):
     hour = t / 3600.0
@@ -44,10 +42,22 @@ def dTdt(t, T):
     return (T_out_t - T) / (R_eff_total * C)
 
 # --- Simulation function ---
-def simulate(R_label):
-    T_out_series = T_out_df[R_label].values
-    R_eff = R_eff_dict[R_label]
+#def simulate(R_label):
+    T_out_series = np.ravel(T_out_df[R_label].to_numpy().astype(float))
+    R_eff = float(R_eff_dict[R_label])
+    
+    # --- Critical Correction for 17520 length data ---
+    if len(T_out_series) == 17520 and len(time_hours) == 8760:
+        print(f"**WARNING: Downsampling 17520 points for {R_label} to 8760.**")
+        # Average every two points to convert half-hourly to hourly data
+        T_out_series = T_out_series.reshape(-1, 2).mean(axis=1)
+    # ---------------------------------------------------
+    
+    if len(T_out_series) != len(time_hours):
+        # This catch is for any other mismatch, but the primary one is 17520
+        raise RuntimeError(f"Length mismatch persists for {R_label}: Index={len(time_hours)}, Data={len(T_out_series)}")
 
+    print(f"{R_label}: len(time_hours)={len(time_hours)}, len(T_out_series)={len(T_out_series)}")
     def dTdt(t, T):
         hour = t / 3600
         T_out_t = np.interp(hour, time_hours, T_out_series)
@@ -56,6 +66,52 @@ def simulate(R_label):
     # One-year simulation (8760 hours)
     t_span = (0, n_hours * 3600)
     t_eval = np.arange(0, n_hours * 3600, 3600)
+    sol = solve_ivp(dTdt, t_span, [T0], t_eval=t_eval, method='RK45')
+
+    T_hourly = sol.y[0]
+    t_hourly = sol.t / 3600
+    return t_hourly, T_hourly
+
+#test bugfixed simulate
+# Assuming n_hours is 8760 (set correctly at the top of solve_ODE.py)
+
+def simulate(R_label):
+    # 1. Extract data series
+    T_out_series = np.ravel(T_out_df[R_label].to_numpy().astype(float))
+    R_eff = float(R_eff_dict[R_label])
+    
+    # 2. Get the expected lengths
+    expected_length = len(time_hours) # This should be 8760
+    current_length = len(T_out_series)
+
+    # --- Robust Correction for Multiples of Expected Length ---
+    if current_length != expected_length:
+        if current_length % expected_length == 0 and expected_length > 0:
+            # Determine the factor (2x, 3x, etc.)
+            factor = current_length // expected_length
+            
+            print(f"**WARNING: Downsampling {current_length} points for {R_label} (Factor {factor}x) to {expected_length}.**")
+            
+            # Reshape and average: Group points by the factor and take the mean
+            T_out_series = T_out_series.reshape(-1, factor).mean(axis=1)
+            
+        else:
+            # If the length is not a clean multiple, something else is fundamentally wrong.
+            raise RuntimeError(f"Length mismatch persists for {R_label}: Index={expected_length}, Data={current_length}. Data length is not a clean multiple of the index length.")
+    # ------------------------------------------------------------
+    
+    # After correction, the lengths should match
+    print(f"{R_label}: len(time_hours)={len(time_hours)}, len(T_out_series)={len(T_out_series)}")
+
+    def dTdt(t, T):
+        hour = t / 3600
+        # time_hours (xp) and T_out_series (fp) are now guaranteed to be 8760
+        T_out_t = np.interp(hour, time_hours, T_out_series)
+        return (T_out_t - T) / (R_eff * C)
+
+    # One-year simulation (8760 hours)
+    t_span = (0, expected_length * 3600)
+    t_eval = np.arange(0, expected_length * 3600, 3600)
     sol = solve_ivp(dTdt, t_span, [T0], t_eval=t_eval, method='RK45')
 
     T_hourly = sol.y[0]
@@ -71,3 +127,10 @@ for R_label in columns:
     output_rows.append(row_data)
 
 results_array = np.vstack(output_rows)  # shape = (n_materials, n_hours + 1)
+
+time_columns = [f'Hour {int(t)}' for t in t_hourly]
+all_columns = ['R_eff_total'] + time_columns
+results_df = pd.DataFrame(results_array, columns=all_columns)
+output_file_name = 'simulation_results_T_indoor.xlsx' 
+
+results_df.to_excel(output_file_name, index=False, sheet_name='Indoor_Temp_Simulation')

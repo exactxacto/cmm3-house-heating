@@ -12,6 +12,13 @@ print (r_val)
 try:
     df_q_val = pd.read_excel('SolRad.xlsx', skiprows=2, usecols=[4], header=None)
     q_val = df_q_val.iloc[:, 0].values
+    if len(q_val) == 17520: #to avoid the random error where data ended up being half hourly????
+        q_val = q_val.reshape(-1, 2).mean(axis=1)
+        print(f"Downsampled q_val to hourly ({len(q_val)} points)")
+    q_val = q_val.flatten()
+    q_val = q_val[~np.isnan(q_val)]  # remove NaNs
+    print("Final q_val shape:", q_val.shape)
+
 except OSError:
     print ("File not found. Please ensure the solar irradiance data file exists at the specified path.")
     df_q_val = pd.DataFrame()  # Assign an empty DataFrame if file not found
@@ -45,12 +52,20 @@ def T_amb(t_hours):
         + -0.0696 * np.sin((2*np.pi * t_hours / 8) - 0.6461)
     )
 
+
 # Evaluate hourly
 T_amb_hourly = T_amb(time_hours)
-
+T_amb_hourly = np.asarray(T_amb_hourly).flatten() #ensure 1D array to avoid shape issues
 
 # Calculations
 def calculate_T_out_eff(r_val, q_val, T_amb_hourly):
+
+    #for debugging
+    print(">>> Entering calculate_T_out_eff")
+    print("  q_val:", len(q_val))
+    print("  T_amb_hourly:", len(T_amb_hourly))
+    ##
+
     n_hours = len(q_val)
     n_mat = len(r_val)
     T_out_eff = np.zeros((n_hours, n_mat))
@@ -59,7 +74,8 @@ def calculate_T_out_eff(r_val, q_val, T_amb_hourly):
     for j, R_wall in enumerate(r_val):
         R_eff_all[j] = R_conv_outside + R_conv_inside + R_wall
         T_out_eff[:, j] = T_amb_hourly + q_val * R_conv_outside
-
+    
+    print("  T_out_eff shape:", T_out_eff.shape)
     return T_out_eff, R_eff_all
 
 T_out_eff, R_eff = calculate_T_out_eff(r_val, q_val, T_amb_hourly)
@@ -70,6 +86,12 @@ columns = [f"R={R:.2f}" for R in r_val]
 
 T_out_df = pd.DataFrame(T_out_eff, index=time_index, columns=columns)
 T_out_df.attrs['R_eff'] = dict(zip(columns, R_eff))
+
+print("T_out_eff shape:", T_out_eff.shape)
+print("T_out_df shape:", T_out_df.shape)
+print("First few rows:\n", T_out_df.head())
+print("Index length:", len(T_out_df.index))
+print("Columns:", len(T_out_df.columns))
 
 output_path = "T_out_effective_temperatures.xlsx"
 
