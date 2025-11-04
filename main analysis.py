@@ -331,21 +331,13 @@ def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost)
         print(f"\nWarning: Could not create Heatmap plot. Error: {e}")
 
 
-    # --- Plot 4: The Root-Finding Validation Plot (from before) ---
+    # Plot 4: The Root-Finding Validation Plot (from before)
     plt.figure(figsize=(10, 6))
-    
-    # Plot the original data points
     plt.plot(final_df.index, final_df['comfortable_hours'], 'o', 
              label='Simulated Data Points', markersize=8)
-    
-    # Plot the smooth interpolated function
     r_smooth = np.linspace(final_df.index.min(), final_df.index.max(), 200)
     comfort_smooth = interp_comfort_func(r_smooth)
     plt.plot(r_smooth, comfort_smooth, '-', label='Interpolated Function (Cubic)')
-    
-    # 
-
-    # Plot the target line and the solution
     if solved_r_value:
         plt.axhline(y=TARGET_COMFORT_HOURS, color='red', linestyle='--', 
                     label=f'Target ({TARGET_COMFORT_HOURS} hrs)')
@@ -361,7 +353,6 @@ def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost)
     plt.savefig("root_finding_plot.png")
     print("Saved 'root_finding_plot.png'")
     
-    # Show all static plots at the end
     plt.show()
 
 # --- 5. MAIN EXECUTION ---
