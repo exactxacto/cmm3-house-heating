@@ -100,3 +100,4 @@ all_columns = ['R_eff_total'] + time_columns
 results_df = pd.DataFrame(results_array, columns=all_columns)
 output_file_name = 'simulation_results_T_indoor.xlsx' 
 
+results_df.to_excel(output_file_name, index=False, sheet_name='Indoor_Temp_Simulation')
