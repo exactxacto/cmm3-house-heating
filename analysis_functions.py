@@ -15,12 +15,12 @@ import sys
 import seaborn as sns
 import plotly.express as px
 
-# --- 1. DEFINE CONSTANTS ---
+# 1. Define Constants 
 COMFORT_LOW = 18.0
 COMFORT_HIGH = 24.0
 TARGET_COMFORT_HOURS = 6500 
 
-# --- 2. DATA PROCESSING FUNCTIONS ---
+# 2. Data Processing Functions
 
 def load_data():
     """
@@ -92,7 +92,7 @@ def merge_data(comfort_series, cost_df):
         
     return final_df
 
-# --- 3. NUMERICAL METHODS FUNCTIONS ---
+# 3. Numerical Methods Functions
 
 def perform_interpolation(final_df):
     """
@@ -118,7 +118,7 @@ def perform_interpolation(final_df):
 
 def solve_root_finding_problem(interp_comfort, interp_cost, r_min, r_max):
     """
-    Solves the specific design question using root-finding.
+    Solves the specific design question using root-finding --> change depending onregulations maybe?
     """
     print(f"\n--- Root-Finding Analysis ---")
     print(f"Design Target: {TARGET_COMFORT_HOURS} comfortable hours.")
@@ -144,7 +144,7 @@ def solve_root_finding_problem(interp_comfort, interp_cost, r_min, r_max):
         print(f"outside the achievable comfort range of your data.")
         return None, None
 
-# --- 4. PLOTTING FUNCTIONS ---
+# 4. Plots 
 
 def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost):
     """
@@ -152,7 +152,7 @@ def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost)
     """
     print("\nGenerating plots...")
 
-    # --- Plot 1: The "Sweet Spot" (4D) ---
+    # Plot 1: The "Sweet Spot" (4D) 
     try:
         plt.figure(figsize=(12, 8))
         pur_col_name = 'Polyurethane (PUR)_thickness(m)'
@@ -209,7 +209,7 @@ def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost)
         print("Saved 'sweet_spot_plot.png'")
 
 
-    # --- Plot 2: The "Recipe" Plot (Interactive Ternary) ---
+    # Plot 2: The "Recipe" Plot (Interactive Ternary)
     try:
         df = final_df.copy()
         eps_col = 'Expanded Polystyrene (EPS)_thickness(m)'
@@ -285,7 +285,7 @@ def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost)
         print(f"\nWarning: Could not create Heatmap plot. Error: {e}")
 
 
-    # --- Plot 4: The Root-Finding Validation Plot ---
+    # Plot 4: The Root-Finding Validation Plot
     plt.figure(figsize=(10, 6))
     
     plt.plot(final_df.index, final_df['comfortable_hours'], 'o', 

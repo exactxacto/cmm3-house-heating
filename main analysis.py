@@ -1,9 +1,10 @@
+
 """
 PURPOSE:
     Analyzes the 'wide' format temperature simulation data from the team.
     This script is for a PASSIVE model (no heater).
     
-    1.  Loads 'all_temperatures.csv' (R-values as rows, 8760 time columns).
+    1.  Loads 'simulation_results_T_indoor.xlsx' (R-values as rows, 8760 time columns).
     2.  Loads 'combinations_and_costs.csv' (R-value vs. Cost).
     3.  Counts comfortable hours (18-24°C) for each R-value.
     4.  Performs INTERPOLATION to create smooth functions for comfort and cost.
@@ -11,7 +12,7 @@ PURPOSE:
     6.  Generates the final Cost vs. Comfort "sweet spot" plot.
 
 REQUIREMENTS:
-    pip install numpy pandas matplotlib scipy seaborn plotly
+    pip install numpy pandas matplotlib scipy seaborn plotly openpyxl
 """
 
 import numpy as np
@@ -34,21 +35,26 @@ TARGET_COMFORT_HOURS = 6500
 def load_data():
     """
     Loads the two required input files.
-    1. The simulation data (wide format)
-    2. The combinations and cost data
+    1. The simulation data (wide format) from Excel
+    2. The combinations and cost data from CSV
     """
     print("Loading data...")
     try:
         # Load simulation data: R-values in the first column (index)
-        temp_df = pd.read_csv("all_temperatures.csv", index_col=0)
+        temp_df = pd.read_excel("simulation_results_T_indoor.xlsx", index_col=0)
         # Make sure index is float, not string
         temp_df.index = temp_df.index.astype(float)
         
     except FileNotFoundError:
         print("\n--- ERROR ---")
-        print("File 'all_temperatures.csv' not found.")
-        print("Please get this file from Person B and place it in the same folder.")
+        print("File 'simulation_results_T_indoor.xlsx' not found.")
+        print("Please run your teammate's 'solve_ODE' script first.")
         sys.exit() # Stop the script
+    except ImportError:
+        print("\n--- ERROR ---")
+        print("Module 'openpyxl' not found. You need it to read Excel files.")
+        print("Please install it by running: pip install openpyxl")
+        sys.exit()
 
     try:
         # Load cost data: R-value is the key to link
@@ -106,7 +112,7 @@ def merge_data(comfort_series, cost_df):
     if len(final_df) == 0:
         print("\n--- ERROR ---")
         print("Data merge failed! No R-values matched between your two files.")
-        print("Check that the R-values in 'all_temperatures.csv' (col 1)")
+        print("Check that the R-values in 'simulation_results_T_indoor.xlsx' (col 1)")
         print("and 'combinations_and_costs.csv' (col 'R(m²K/W)') are identical.")
         sys.exit()
         
@@ -331,13 +337,19 @@ def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost)
         print(f"\nWarning: Could not create Heatmap plot. Error: {e}")
 
 
-    # Plot 4: The Root-Finding Validation Plot (from before)
+    # --- Plot 4: The Root-Finding Validation Plot (from before) ---
     plt.figure(figsize=(10, 6))
+    
+    # Plot the original data points
     plt.plot(final_df.index, final_df['comfortable_hours'], 'o', 
              label='Simulated Data Points', markersize=8)
+    
+    # Plot the smooth interpolated function
     r_smooth = np.linspace(final_df.index.min(), final_df.index.max(), 200)
     comfort_smooth = interp_comfort_func(r_smooth)
     plt.plot(r_smooth, comfort_smooth, '-', label='Interpolated Function (Cubic)')
+    
+    # Plot the target line and the solution
     if solved_r_value:
         plt.axhline(y=TARGET_COMFORT_HOURS, color='red', linestyle='--', 
                     label=f'Target ({TARGET_COMFORT_HOURS} hrs)')
@@ -353,6 +365,7 @@ def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost)
     plt.savefig("root_finding_plot.png")
     print("Saved 'root_finding_plot.png'")
     
+    # Show all static plots at the end
     plt.show()
 
 # --- 5. MAIN EXECUTION ---

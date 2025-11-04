@@ -9,10 +9,10 @@ Created on Tue Nov  4 18:46:17 2025
     It imports all functions from the 'analysis_functions.py' toolbox
 """
 
-# Import the "toolbox" file and give it a short name 'af'
+# Import the calculation file and give it a short name
 import analysis_functions as af
 
-# --- 5. MAIN EXECUTION ---
+# Main Execution
 if __name__ == "__main__":
     
     # Step 1: Load the two data files
