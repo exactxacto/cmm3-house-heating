@@ -41,38 +41,6 @@ def dTdt(t, T):
     T_out_t = np.interp(hour, time_hours, T_out_series)
     return (T_out_t - T) / (R_eff_total * C)
 
-# --- Simulation function ---
-#def simulate(R_label):
-    T_out_series = np.ravel(T_out_df[R_label].to_numpy().astype(float))
-    R_eff = float(R_eff_dict[R_label])
-    
-    # --- Critical Correction for 17520 length data ---
-    if len(T_out_series) == 17520 and len(time_hours) == 8760:
-        print(f"**WARNING: Downsampling 17520 points for {R_label} to 8760.**")
-        # Average every two points to convert half-hourly to hourly data
-        T_out_series = T_out_series.reshape(-1, 2).mean(axis=1)
-    # ---------------------------------------------------
-    
-    if len(T_out_series) != len(time_hours):
-        # This catch is for any other mismatch, but the primary one is 17520
-        raise RuntimeError(f"Length mismatch persists for {R_label}: Index={len(time_hours)}, Data={len(T_out_series)}")
-
-    print(f"{R_label}: len(time_hours)={len(time_hours)}, len(T_out_series)={len(T_out_series)}")
-    def dTdt(t, T):
-        hour = t / 3600
-        T_out_t = np.interp(hour, time_hours, T_out_series)
-        return (T_out_t - T) / (R_eff * C)
-
-    # One-year simulation (8760 hours)
-    t_span = (0, n_hours * 3600)
-    t_eval = np.arange(0, n_hours * 3600, 3600)
-    sol = solve_ivp(dTdt, t_span, [T0], t_eval=t_eval, method='RK45')
-
-    T_hourly = sol.y[0]
-    t_hourly = sol.t / 3600
-    return t_hourly, T_hourly
-
-#test bugfixed simulate
 # Assuming n_hours is 8760 (set correctly at the top of solve_ODE.py)
 
 def simulate(R_label):
@@ -84,7 +52,7 @@ def simulate(R_label):
     expected_length = len(time_hours) # This should be 8760
     current_length = len(T_out_series)
 
-    # --- Robust Correction for Multiples of Expected Length ---
+    # 3. Error handling - downsample due to weird length issues with some data
     if current_length != expected_length:
         if current_length % expected_length == 0 and expected_length > 0:
             # Determine the factor (2x, 3x, etc.)
@@ -105,7 +73,6 @@ def simulate(R_label):
 
     def dTdt(t, T):
         hour = t / 3600
-        # time_hours (xp) and T_out_series (fp) are now guaranteed to be 8760
         T_out_t = np.interp(hour, time_hours, T_out_series)
         return (T_out_t - T) / (R_eff * C)
 
@@ -133,4 +100,3 @@ all_columns = ['R_eff_total'] + time_columns
 results_df = pd.DataFrame(results_array, columns=all_columns)
 output_file_name = 'simulation_results_T_indoor.xlsx' 
 
-results_df.to_excel(output_file_name, index=False, sheet_name='Indoor_Temp_Simulation')
