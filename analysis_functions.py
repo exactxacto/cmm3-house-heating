@@ -8,20 +8,14 @@ import sys
 import seaborn as sns
 import plotly.express as px
 
-# --- 1. DEFINE CONSTANTS ---
+# 1. DEFINE CONSTANTS 
 COMFORT_LOW = 18.0
 COMFORT_HIGH = 24.0
 TARGET_COMFORT_HOURS = 145 
 
-# --- 2. DATA PROCESSING FUNCTIONS ---
+# 2. DATA PROCESSING FUNCTIONS 
 
 def load_data():
-    """
-    Loads the required input files:
-    1. The simulation data (wide format) from Excel
-    2. The combinations and cost data from CSV
-    """
-    print("Loading data...")
     try:
         temp_df = pd.read_excel("simulation_results_T_indoor.xlsx")
         
@@ -56,8 +50,7 @@ def load_data():
 
 def calculate_comfort(temp_df):
     """
-    Counts comfortable hours for the 'wide' format data.
-    This function processes the data row by row (axis=1).
+    Counts comfortable hours for the 'wide' format data..
     """
     print("Calculating comfortable hours for each R-value...")
     
@@ -74,7 +67,6 @@ def calculate_comfort(temp_df):
 def merge_data(comfort_series, cost_df):
     """
     Merges comfort data and cost data using the row index.
-    Groups by R-value and averages to remove duplicates.
     """
     final_df = cost_df.join(comfort_series)
     
@@ -98,7 +90,7 @@ def merge_data(comfort_series, cost_df):
         
     return final_df_agg
 
-# --- 3. NUMERICAL METHODS FUNCTIONS ---
+# 3. NUMERICAL METHODS FUNCTIONS 
 
 def perform_interpolation(final_df):
     """
@@ -152,7 +144,7 @@ def solve_root_finding_problem(interp_comfort, interp_cost, r_min, r_max):
         print(f"outside the achievable comfort range of the data.")
         return None, None
 
-# --- 4. ANALYSIS FUNCTION ---
+# 4. ANALYSIS FUNCTION 
 
 def find_best_tradeoff(final_df):
     """
@@ -192,14 +184,9 @@ def find_best_tradeoff(final_df):
         return None
 
 
-# --- 5. PLOTTING FUNCTIONS ---
+# 5. PLOTTING FUNCTIONS 
 
 def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost, best_combo):
-    """
-    Generates the core plots for the design report.
-    """
-    print("\nGenerating final report plots...")
-
     # --- Plot 1: Cost vs. R-Value Optimization ---
     plt.figure(figsize=(12, 8))
     sc = plt.scatter(
@@ -213,18 +200,6 @@ def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost,
         s=50 
     )
 
-    if best_combo is not None:
-        plt.scatter(
-            best_combo.name, 
-            best_combo['Total_Cost'], 
-            color='red', 
-            s=400,
-            edgecolors='black',
-            marker='*', 
-            label=f'Optimal Trade-Off (R={best_combo.name:.2f})',
-            zorder=10
-        )
-
     plt.colorbar(sc, label='Comfortable Hours (Annual)')
     plt.title("Optimization: Total Cost vs. R-Value", fontsize=16)
     plt.xlabel("Wall-Only R-Value (m²K/W)", fontsize=12)
@@ -236,7 +211,7 @@ def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost,
     print("Saved 'cost_vs_rvalue_plot.png'")
 
 
-    # --- Plot 2: Material Fraction Sensitivity ---
+    # Plot 2: Material Fraction Sensitivity 
     print("Generating 'Material Fraction' plots...")
     try:
         df = final_df.copy()
@@ -289,7 +264,7 @@ def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost,
         print(f"\nWarning: Could not create Material Fraction plots. Error: {e}")
 
 
-    # --- Plot 3: The Root-Finding Validation Plot ---
+    # Plot 3: The Root-Finding Validation Plot 
     plt.figure(figsize=(10, 6))
     
     x_axis_r_value = final_df.index
@@ -318,7 +293,7 @@ def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost,
     
     plt.show()
 
-# --- Plot 4: Time-Series Comparison Plot ---
+# Plot 4: Time-Series Comparison Plot
 def plot_timeseries_comparison(temp_df, cost_df, comfort_series):
     """
     Plots a 3-day sample of indoor temps for the
