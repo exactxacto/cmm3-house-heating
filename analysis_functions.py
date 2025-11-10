@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Tue Nov  4 18:42:09 2025
-
-@author: carme
-"""
-
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -15,48 +8,48 @@ import sys
 import seaborn as sns
 import plotly.express as px
 
-# 1. Define Constants 
+# --- 1. DEFINE CONSTANTS ---
 COMFORT_LOW = 18.0
 COMFORT_HIGH = 24.0
-TARGET_COMFORT_HOURS = 6500 
+TARGET_COMFORT_HOURS = 145 
 
-# 2. Data Processing Functions
+# --- 2. DATA PROCESSING FUNCTIONS ---
 
 def load_data():
     """
-    Loads the two required input files.
+    Loads the required input files:
     1. The simulation data (wide format) from Excel
     2. The combinations and cost data from CSV
     """
     print("Loading data...")
     try:
-        # Load simulation data: R-values in the first column (index)
-        temp_df = pd.read_excel("simulation_results_T_indoor.xlsx", index_col=0)
-        # Make sure index is float, not string
-        temp_df.index = temp_df.index.astype(float)
+        temp_df = pd.read_excel("simulation_results_T_indoor.xlsx")
         
     except FileNotFoundError:
         print("\n--- ERROR ---")
         print("File 'simulation_results_T_indoor.xlsx' not found.")
-        print("Run 'solve_ODE' script first.")
-        sys.exit() # Stop the script
+        print("Please run the 'solve_ODE' script first.")
+        sys.exit() 
     except ImportError:
         print("\n--- ERROR ---")
-        print("Module 'openpyxl' not found. You need it to read Excel files.")
-        print("Please install it by running: pip install openpyxl")
+        print("Module 'openpyxl' not found. Please install: pip install openpyxl")
         sys.exit()
 
     try:
-        # Load cost data: R-value is the key to link
-        cost_df = pd.read_csv("combinations_and_costs.csv", index_col='R(m²K/W)')
-        cost_df.index = cost_df.index.astype(float)
+        cost_df = pd.read_csv("combinations_and_costs.csv")
         
     except FileNotFoundError:
         print("\n--- ERROR ---")
         print("File 'combinations_and_costs.csv' not found.")
-    except KeyError:
+        print("Please create this file from the R-value combinations data.")
+        sys.exit()
+
+    if len(temp_df) != len(cost_df):
         print("\n--- ERROR ---")
-        print("Could not find column 'R(m²K/W)' in 'combinations_and_costs.csv'.")
+        print(f"File row counts do not match!")
+        print(f"Excel has {len(temp_df)} rows.")
+        print(f"CSV has {len(cost_df)} rows.")
+        print("Please ensure both files were generated from the same list.")
         sys.exit()
 
     return temp_df, cost_df
@@ -68,49 +61,64 @@ def calculate_comfort(temp_df):
     """
     print("Calculating comfortable hours for each R-value...")
     
+    temp_data_only = temp_df.drop(columns=temp_df.columns[0])
+    
     def count_comfort_in_row(row):
         return ((row >= COMFORT_LOW) & (row <= COMFORT_HIGH)).sum()
 
-    comfort_series = temp_df.apply(count_comfort_in_row, axis=1)
+    comfort_series = temp_data_only.apply(count_comfort_in_row, axis=1)
+    
     comfort_series.name = "comfortable_hours"
     return comfort_series
 
 def merge_data(comfort_series, cost_df):
     """
-    Merges comfort data and cost data using the R-value as the key.
+    Merges comfort data and cost data using the row index.
+    Groups by R-value and averages to remove duplicates.
     """
-    final_df = cost_df.join(comfort_series, how='inner')
-    final_df = final_df.dropna(subset=['comfortable_hours', 'Total_Cost'])
-    final_df = final_df.sort_index()
+    final_df = cost_df.join(comfort_series)
     
-    if len(final_df) == 0:
+    final_df = final_df.dropna(subset=['comfortable_hours', 'Total_Cost'])
+    
+    print("Averaging combinations with duplicate R-values...")
+    try:
+        r_value_col = 'R(m²K/W)'
+        final_df_agg = final_df.groupby(r_value_col).mean(numeric_only=True)
+    except KeyError:
+        print(f"--- ERROR ---")
+        print(f"Cannot find R-value column '{r_value_col}' to group by.")
+        sys.exit()
+
+    final_df_agg = final_df_agg.sort_index()
+    
+    if len(final_df_agg) == 0:
         print("\n--- ERROR ---")
-        print("Data merge failed! No R-values matched between your two files.")
-        print("Check that the R-values in 'simulation_results_T_indoor.xlsx' (col 1)")
-        print("and 'combinations_and_costs.csv' (col 'R(m²K/W)') are identical.")
+        print("Data merge failed! The files might be empty.")
         sys.exit()
         
-    return final_df
+    return final_df_agg
 
-# 3. Numerical Methods Functions
+# --- 3. NUMERICAL METHODS FUNCTIONS ---
 
 def perform_interpolation(final_df):
     """
-    Creates smooth functions for comfort and cost vs. R-value.
+    Creates linear interpolation functions for comfort and cost vs. R-value.
     """
     print("Performing interpolation...")
     
+    x_axis_r_value = final_df.index
+    
     interp_func_comfort = interp1d(
-        final_df.index,
+        x_axis_r_value,
         final_df['comfortable_hours'],
-        kind='cubic',
+        kind='linear',
         fill_value="extrapolate"
     )
     
     interp_func_cost = interp1d(
-        final_df.index,
+        x_axis_r_value,
         final_df['Total_Cost'],
-        kind='cubic',
+        kind='linear',
         fill_value="extrapolate"
     )
     
@@ -118,11 +126,11 @@ def perform_interpolation(final_df):
 
 def solve_root_finding_problem(interp_comfort, interp_cost, r_min, r_max):
     """
-    Solves the specific design question using root-finding --> change depending onregulations maybe?
+    Solves the specific design question using root-finding.
     """
     print(f"\n--- Root-Finding Analysis ---")
     print(f"Design Target: {TARGET_COMFORT_HOURS} comfortable hours.")
-    print("Solving for the *exact* R-value needed...")
+    print("Solving for the required R-value...")
 
     def comfort_target_function(r_value):
         return interp_comfort(r_value) - TARGET_COMFORT_HOURS
@@ -131,9 +139,9 @@ def solve_root_finding_problem(interp_comfort, interp_cost, r_min, r_max):
         solved_r_value = brentq(comfort_target_function, r_min, r_max)
         solved_cost = interp_cost(solved_r_value)
         
-        print("\n---Root-Finding Solution ---")
-        print(f"To hit the target, the *exact* R-value required is: {solved_r_value:.3f} m²K/W")
-        print(f"The interpolated cost for this R-value is: £{solved_cost:.2f}")
+        print("\n--- Root-Finding Solution ---")
+        print(f"Required R-value: {solved_r_value:.3f} m²K/W")
+        print(f"Interpolated cost: £{solved_cost:.2f}")
         
         return solved_r_value, solved_cost
 
@@ -141,75 +149,95 @@ def solve_root_finding_problem(interp_comfort, interp_cost, r_min, r_max):
         print(f"\n--- Root-Finding Error ---")
         print(f"Error: Could not find a solution.")
         print(f"The target of {TARGET_COMFORT_HOURS} hours may be")
-        print(f"outside the achievable comfort range of your data.")
+        print(f"outside the achievable comfort range of the data.")
         return None, None
 
-# 4. Plots 
+# --- 4. ANALYSIS FUNCTION ---
 
-def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost):
+def find_best_tradeoff(final_df):
     """
-    Generates all the final plots for the design report.
+    Finds the "knee" of the Cost vs. R-Value curve (best trade-off).
     """
-    print("\nGenerating plots...")
-
-    # Plot 1: The "Sweet Spot" (4D) 
+    print("\n--- Design Optimization Analysis ---")
+    
     try:
-        plt.figure(figsize=(12, 8))
-        pur_col_name = 'Polyurethane (PUR)_thickness(m)'
-        if pur_col_name not in final_df.columns:
-            raise KeyError(f"Column '{pur_col_name}' not in combinations_and_costs.csv")
-            
-        sizes = final_df[pur_col_name] * 500 + 10
+        r_values = final_df.index
+        costs = final_df['Total_Cost']
+        
+        # Normalize data (0 to 1)
+        norm_r = (r_values - r_values.min()) / (r_values.max() - r_values.min())
+        norm_cost = (costs - costs.min()) / (costs.max() - costs.min())
+        
+        # Find distance from the "ideal" point (0, 1) [min cost, max R]
+        distances = np.sqrt(norm_cost**2 + (1 - norm_r)**2)
+        
+        # Find the R-value of the point with the minimum distance
+        best_r_value = distances.idxmin()
+        best_combo = final_df.loc[best_r_value]
 
-        sc = plt.scatter(
-            final_df['Total_Cost'],
-            final_df['comfortable_hours'],
-            c=final_df.index,
-            s=sizes,
-            cmap='viridis',
-            alpha=0.6,
-            edgecolors='k',
-            linewidth=0.5
+        # Print the result
+        print("\n--- Optimal Cost-Performance Point ---")
+        print(f"   R-Value: {best_combo.name:.3f} m²K/W")
+        print(f"   Total Cost: £{best_combo['Total_Cost']:.2f}")
+        print(f"   Comfortable Hours: {best_combo['comfortable_hours']:.0f}")
+        print("   Averaged Recipe (Total = 0.4m):")
+        print(f"    EPS: {best_combo['Expanded Polystyrene (EPS)_thickness(m)']*100:.1f} cm")
+        print(f"    MW:  {best_combo['mineral_wool_thickness(m)']*100:.1f} cm")
+        print(f"    PUR: {best_combo['Polyurethane (PUR)_thickness(m)']*100:.1f} cm")
+        
+        return best_combo
+
+    except Exception as e:
+        print(f"Could not run optimization analysis: {e}")
+        return None
+
+
+# --- 5. PLOTTING FUNCTIONS ---
+
+def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost, best_combo):
+    """
+    Generates the core plots for the design report.
+    """
+    print("\nGenerating final report plots...")
+
+    # --- Plot 1: Cost vs. R-Value Optimization ---
+    plt.figure(figsize=(12, 8))
+    sc = plt.scatter(
+        final_df.index,  # X-axis is R-Value
+        final_df['Total_Cost'], # Y-axis is Cost
+        c=final_df['comfortable_hours'], # Color is the result
+        cmap='viridis',
+        alpha=0.6,
+        edgecolors='k',
+        linewidth=0.5,
+        s=50 
+    )
+
+    if best_combo is not None:
+        plt.scatter(
+            best_combo.name, 
+            best_combo['Total_Cost'], 
+            color='red', 
+            s=400,
+            edgecolors='black',
+            marker='*', 
+            label=f'Optimal Trade-Off (R={best_combo.name:.2f})',
+            zorder=10
         )
 
-        plt.colorbar(sc, label='R-Value (m²K/W)')
-        plt.title("Optimization: Cost vs. Comfort (Passive Model)", fontsize=16)
-        plt.xlabel("Total Insulation Cost (£)", fontsize=12)
-        plt.ylabel("Annual Comfortable Hours (18-24°C)", fontsize=12)
-
-        for thickness in [0.05, 0.1, 0.15]:
-            plt.scatter([], [], s=thickness*500+10, c='gray', alpha=0.6,
-                        label=f'{thickness*100:.0f}cm PUR')
-        plt.legend(scatterpoints=1, frameon=False, labelspacing=1, title='PUR Thickness')
-
-        plt.grid(True, linestyle='--', alpha=0.5)
-        plt.tight_layout()
-        plt.savefig("sweet_spot_4d_plot.png")
-        print("Saved 'sweet_spot_4d_plot.png'")
-
-    except KeyError as e:
-        print(f"\nWarning: Could not create 4D plot. {e}")
-        print("Creating simpler 3D plot instead.")
-        plt.figure(figsize=(10, 6))
-        sc = plt.scatter(
-            final_df['Total_Cost'],
-            final_df['comfortable_hours'],
-            c=final_df.index,
-            cmap='viridis',
-            alpha=0.7,
-            edgecolors='k'
-        )
-        plt.colorbar(sc, label='R-Value (m²K/W)')
-        plt.title("Optimization: Cost vs. Comfort (Passive Model)", fontsize=16)
-        plt.xlabel("Total Insulation Cost (£)", fontsize=12)
-        plt.ylabel("Annual Comfortable Hours (18-24°C)", fontsize=12)
-        plt.grid(True, linestyle='--', alpha=0.5)
-        plt.tight_layout()
-        plt.savefig("sweet_spot_plot.png")
-        print("Saved 'sweet_spot_plot.png'")
+    plt.colorbar(sc, label='Comfortable Hours (Annual)')
+    plt.title("Optimization: Total Cost vs. R-Value", fontsize=16)
+    plt.xlabel("Wall-Only R-Value (m²K/W)", fontsize=12)
+    plt.ylabel("Total Insulation Cost (£)", fontsize=12)
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("cost_vs_rvalue_plot.png")
+    print("Saved 'cost_vs_rvalue_plot.png'")
 
 
-    # Plot 2: The "Recipe" Plot (Interactive Ternary)
+    # --- Plot 2: Material Fraction Sensitivity ---
+    print("Generating 'Material Fraction' plots...")
     try:
         df = final_df.copy()
         eps_col = 'Expanded Polystyrene (EPS)_thickness(m)'
@@ -222,78 +250,56 @@ def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost)
             
         df['Total_Thickness'] = df[cols].sum(axis=1)
 
+        # Calculate fractions
         df['EPS_Frac'] = df[eps_col] / df['Total_Thickness'].replace(0, np.nan)
         df['MW_Frac'] = df[mw_col] / df['Total_Thickness'].replace(0, np.nan)
         df['PUR_Frac'] = df[pur_col] / df['Total_Thickness'].replace(0, np.nan)
         df = df.fillna(0)
 
-        fig = px.ternary(
-            df,
-            a="EPS_Frac",
-            b="MW_Frac",
-            c="PUR_Frac",
-            color="comfortable_hours",
-            size="Total_Cost",
-            hover_name=df.index,
-            color_continuous_scale='viridis',
-            title="Insulation Combination 'Recipe' vs. Comfort"
-        )
-        fig.update_layout(
-            ternary_a_axis_title_text='EPS Fraction',
-            ternary_b_axis_title_text='Mineral Wool Fraction',
-            ternary_c_axis_title_text='PUR Fraction'
-        )
-        fig.write_html("ternary_comfort_plot.html")
-        print("Saved interactive 'ternary_comfort_plot.html'")
-    
-    except KeyError as e:
-        print(f"\nWarning: Could not create Ternary plot. Missing column: {e}")
-    except Exception as e:
-        print(f"\nWarning: Could not create Ternary plot. Error: {e}")
-
-
-    # --- Plot 3: The Correlation Heatmap ---
-    try:
-        cols_to_correlate = [
-            'Expanded Polystyrene (EPS)_thickness(m)', 
-            'mineral_wool_thickness(m)', 
-            'Polyurethane (PUR)_thickness(m)', 
-            'Total_Cost', 
-            'comfortable_hours'
-        ]
-        corr_df = final_df.copy()
-        corr_df['R_Value'] = final_df.index
+        # Create 3 subplots
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 15), sharex=True)
         
-        cols_to_correlate = [c for c in cols_to_correlate if c in corr_df.columns]
-        corr_df = corr_df[cols_to_correlate + ['R_Value']]
+        # Plot 1: EPS Fraction
+        s1 = ax1.scatter(df['EPS_Frac'], df['comfortable_hours'], c=df['Total_Cost'], cmap='viridis', alpha=0.7)
+        ax1.set_title("Comfort vs. EPS Fraction", fontsize=14)
+        ax1.set_ylabel("Comfortable Hours")
+        ax1.grid(True, linestyle='--', alpha=0.5)
+        
+        # Plot 2: Mineral Wool Fraction
+        s2 = ax2.scatter(df['MW_Frac'], df['comfortable_hours'], c=df['Total_Cost'], cmap='viridis', alpha=0.7)
+        ax2.set_title("Comfort vs. Mineral Wool Fraction", fontsize=14)
+        ax2.set_ylabel("Comfortable Hours")
+        ax2.grid(True, linestyle='--', alpha=0.5)
+        
+        # Plot 3: PUR Fraction
+        s3 = ax3.scatter(df['PUR_Frac'], df['comfortable_hours'], c=df['Total_Cost'], cmap='viridis', alpha=0.7)
+        ax3.set_title("Comfort vs. PUR Fraction", fontsize=14)
+        ax3.set_ylabel("Comfortable Hours")
+        ax3.set_xlabel("Material Fraction of Total Thickness (0.0 to 1.0)", fontsize=12)
+        ax3.grid(True, linestyle='--', alpha=0.5)
 
-        corr_matrix = corr_df.corr()
-
-        plt.figure(figsize=(10, 7))
-        sns.heatmap(
-            corr_matrix,
-            annot=True,
-            cmap='coolwarm',
-            fmt=".2f"
-        )
-        plt.title("Correlation Matrix of Design Variables", fontsize=16)
+        fig.colorbar(s1, ax=ax3, label='Total Cost (£)', orientation='horizontal', pad=0.1)
         plt.tight_layout()
-        plt.savefig("correlation_heatmap.png")
-        print("Saved 'correlation_heatmap.png'")
-        
+        plt.savefig("material_fraction_plot.png")
+        print("Saved 'material_fraction_plot.png'")
+
+    except KeyError as e:
+        print(f"\nWarning: Could not create Material Fraction plots. Missing column: {e}")
     except Exception as e:
-        print(f"\nWarning: Could not create Heatmap plot. Error: {e}")
+        print(f"\nWarning: Could not create Material Fraction plots. Error: {e}")
 
 
-    # Plot 4: The Root-Finding Validation Plot
+    # --- Plot 3: The Root-Finding Validation Plot ---
     plt.figure(figsize=(10, 6))
     
-    plt.plot(final_df.index, final_df['comfortable_hours'], 'o', 
-             label='Simulated Data Points', markersize=8)
+    x_axis_r_value = final_df.index
     
-    r_smooth = np.linspace(final_df.index.min(), final_df.index.max(), 200)
+    plt.plot(x_axis_r_value, final_df['comfortable_hours'], 'o', 
+             label='Simulated Data Points (Averaged)', markersize=8)
+    
+    r_smooth = np.linspace(x_axis_r_value.min(), x_axis_r_value.max(), 200)
     comfort_smooth = interp_comfort_func(r_smooth)
-    plt.plot(r_smooth, comfort_smooth, '-', label='Interpolated Function (Cubic)')
+    plt.plot(r_smooth, comfort_smooth, '-', label='Interpolated Function (Linear)')
     
     if solved_r_value:
         plt.axhline(y=TARGET_COMFORT_HOURS, color='red', linestyle='--', 
@@ -302,7 +308,7 @@ def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost)
                     label=f'Solution = {solved_r_value:.3f} R-value')
     
     plt.title("Root-Finding: R-Value vs. Comfort", fontsize=16)
-    plt.xlabel("R-Value (m²K/W)", fontsize=12)
+    plt.xlabel("Wall-Only R-Value (m²K/W)", fontsize=12)
     plt.ylabel("Annual Comfortable Hours", fontsize=12)
     plt.legend()
     plt.grid(True, linestyle='--', alpha=0.5)
@@ -310,5 +316,52 @@ def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost)
     plt.savefig("root_finding_plot.png")
     print("Saved 'root_finding_plot.png'")
     
-    # Show all static plots at the end
     plt.show()
+
+# --- Plot 4: Time-Series Comparison Plot ---
+def plot_timeseries_comparison(temp_df, cost_df, comfort_series):
+    """
+    Plots a 3-day sample of indoor temps for the
+    best, worst, and median R-value combinations.
+    """
+    print("Generating time-series comparison plot...")
+    
+    full_df = cost_df.join(comfort_series)
+    
+    idx_min = full_df['comfortable_hours'].idxmin()
+    idx_max = full_df['comfortable_hours'].idxmax()
+    
+    median_comfort_val = full_df['comfortable_hours'].median()
+    idx_med = (full_df['comfortable_hours'] - median_comfort_val).abs().idxmin()
+    
+    r_min = full_df.loc[idx_min, 'R(m²K/W)']
+    r_max = full_df.loc[idx_max, 'R(m²K/W)']
+    r_med = full_df.loc[idx_med, 'R(m²K/W)']
+    
+    temp_data_only = temp_df.drop(columns=temp_df.columns[0])
+    
+    series_min = temp_data_only.loc[idx_min]
+    series_max = temp_data_only.loc[idx_max]
+    series_med = temp_data_only.loc[idx_med]
+    
+    sample_hours = range(72)
+    start_hour = 4000
+    end_hour = start_hour + 72
+    
+    plt.figure(figsize=(15, 7))
+    plt.plot(sample_hours, series_min.iloc[start_hour:end_hour], label=f'Worst Comfort ({full_df.loc[idx_min, "comfortable_hours"]} hrs, R={r_min:.2f})', color='blue', alpha=0.7)
+    plt.plot(sample_hours, series_med.iloc[start_hour:end_hour], label=f'Median Comfort ({full_df.loc[idx_med, "comfortable_hours"]} hrs, R={r_med:.2f})', color='orange', alpha=0.7, linestyle='--')
+    plt.plot(sample_hours, series_max.iloc[start_hour:end_hour], label=f'Best Comfort ({full_df.loc[idx_max, "comfortable_hours"]} hrs, R={r_max:.2f})', color='green', alpha=0.7)
+    
+    plt.axhline(COMFORT_LOW, color='gray', linestyle=':', label='Comfort Band (18-24°C)')
+    plt.axhline(COMFORT_HIGH, color='gray', linestyle=':')
+    plt.fill_between(sample_hours, COMFORT_LOW, COMFORT_HIGH, color='green', alpha=0.1)
+
+    plt.title("Time-Series Comparison (72 Hour Summer Sample)", fontsize=16)
+    plt.xlabel("Hour of Sample (Summer)", fontsize=12)
+    plt.ylabel("Indoor Temperature (°C)", fontsize=12)
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.tight_layout()
+    plt.savefig("timeseries_comparison_plot.png")
+    print("Saved 'timeseries_comparison_plot.png'")
