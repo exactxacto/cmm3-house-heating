@@ -283,7 +283,7 @@ def create_all_plots(final_df, interp_comfort_func, solved_r_value, solved_cost,
                     label=f'Solution = {solved_r_value:.3f} R-value')
     
     plt.title("Root-Finding: R-Value vs. Comfort", fontsize=16)
-    plt.xlabel("Wall-Only R-Value (m²K/W)", fontsize=12)
+    plt.xlabel("R-Value (m²K/W)", fontsize=12)
     plt.ylabel("Annual Comfortable Hours", fontsize=12)
     plt.legend()
     plt.grid(True, linestyle='--', alpha=0.5)
