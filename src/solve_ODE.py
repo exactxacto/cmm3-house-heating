@@ -32,9 +32,10 @@ height_house = 3.0 # meters
 vol_house = width_house * length_house * height_house  # m^3
 density_air = 1.225  # kg/m^3
 mass_air = vol_house * density_air  # kg
-C = mass_air * 1005  # J/K
+C = mass_air * 1005  + 1500000  # J/K (including thermal mass of )
 T0 = 25   # initial indoor temperature [°C]
 
+print (C)
 
 def dTdt(t, T):
     hour = t / 3600.0
