@@ -32,9 +32,10 @@ height_house = 3.0 # meters
 vol_house = width_house * length_house * height_house  # m^3
 density_air = 1.225  # kg/m^3
 mass_air = vol_house * density_air  # kg
-C = mass_air * 1005  # J/K
+C = mass_air * 1005  + 1500000  # J/K (including thermal mass of )
 T0 = 25   # initial indoor temperature [°C]
 
+print (C)
 
 def dTdt(t, T):
     hour = t / 3600.0
@@ -100,15 +101,4 @@ all_columns = ['R_eff_total'] + time_columns
 results_df = pd.DataFrame(results_array, columns=all_columns)
 output_file_name = 'simulation_results_T_indoor.xlsx' 
 
-# --- Save the results to Excel ---
-print(f"\nAll simulations complete. Saving results to '{output_file_name}'...")
-try:
-    results_df.to_excel(output_file_name, index=False)
-    print("File saved successfully.")
-    print("You can now run 'main_analysis.py'.")
-except PermissionError:
-    print(f"\n--- ERROR ---")
-    print(f"Could not save '{output_file_name}'.")
-    print("Is the file open in Excel? Close it and try again.")
-except Exception as e:
-    print(f"\nAn unexpected error occurred while saving: {e}")
+results_df.to_excel(output_file_name, index=False, sheet_name='Indoor_Temp_Simulation')
