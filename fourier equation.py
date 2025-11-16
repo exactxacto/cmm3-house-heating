@@ -17,7 +17,7 @@ import sys
 
 def load_data():
     """
-    ATTEMPTS to load your actual hourly temperature data from 'EdiTempYear.xlsx'.
+    ATTEMPTS to load actual hourly temperature data from 'EdiTempYear.xlsx'.
     
     If the file is not found or the columns are incorrect, the script will 
     print an error and halt execution.
