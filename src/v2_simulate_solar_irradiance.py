@@ -72,7 +72,7 @@ def calculate_T_out_eff(r_val, q_val, T_amb_hourly):
     R_eff_all = np.zeros(n_mat)
 
     for j, R_wall in enumerate(r_val):
-        R_eff_all[j] = R_conv_outside + R_conv_inside + R_wall
+        R_eff_all[j] = (R_conv_outside + R_conv_inside + R_wall)/(area_wall)
         T_out_eff[:, j] = T_amb_hourly + q_val * R_conv_outside
     
     print("  T_out_eff shape:", T_out_eff.shape)
