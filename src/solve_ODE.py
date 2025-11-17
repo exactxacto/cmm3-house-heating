@@ -6,7 +6,7 @@ import pandas as pd
 from v2_simulate_solar_irradiance import T_out_df, R_eff_dict, time_hours, n_hours
 
 try:
-    T_out_df  # defined earlier
+    T_out_df  # defined in v2_simulate_solar_irradiance
 except NameError:
     raise RuntimeError("T_out_df not found — run the generation code first.")
 
@@ -33,7 +33,7 @@ vol_house = width_house * length_house * height_house  # m^3
 density_air = 1.225  # kg/m^3
 mass_air = vol_house * density_air  # kg
 C = mass_air * 1005  + 1500000  # J/K (including thermal mass of )
-T0 = 25   # initial indoor temperature [°C]
+T0 = 18   # initial indoor temperature [°C]
 
 print (C)
 
@@ -42,7 +42,7 @@ def dTdt(t, T):
     T_out_t = np.interp(hour, time_hours, T_out_series)
     return (T_out_t - T) / (R_eff_total * C)
 
-# Assuming n_hours is 8760 (set correctly at the top of solve_ODE.py)
+# Assuming n_hours is 8760 (set correctly at the top of solve_ODE)
 
 def simulate(R_label):
     # 1. Extract data series
@@ -65,11 +65,10 @@ def simulate(R_label):
             T_out_series = T_out_series.reshape(-1, factor).mean(axis=1)
             
         else:
-            # If the length is not a clean multiple, something else is fundamentally wrong.
+            # If the length is not a clean multiple, something else is messed up.
             raise RuntimeError(f"Length mismatch persists for {R_label}: Index={expected_length}, Data={current_length}. Data length is not a clean multiple of the index length.")
-    # ------------------------------------------------------------
     
-    # After correction, the lengths should match
+    # Check if lengths are correct now
     print(f"{R_label}: len(time_hours)={len(time_hours)}, len(T_out_series)={len(T_out_series)}")
 
     def dTdt(t, T):
@@ -86,7 +85,7 @@ def simulate(R_label):
     t_hourly = sol.t / 3600
     return t_hourly, T_hourly
 
-# --- Run simulations for all materials ---
+# Run simulations for all materials 
 output_rows = []
 for R_label in columns:
     t_hourly, T_hourly = simulate(R_label)
