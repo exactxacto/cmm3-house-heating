@@ -37,11 +37,6 @@ T0 = 18   # initial indoor temperature [°C]
 
 print (C)
 
-def dTdt(t, T):
-    hour = t / 3600.0
-    T_out_t = np.interp(hour, time_hours, T_out_series)
-    return (T_out_t - T) / (R_eff_total * C)
-
 # Assuming n_hours is 8760 (set correctly at the top of solve_ODE)
 
 def simulate(R_label):
@@ -102,3 +97,66 @@ output_file_name = 'simulation_results_T_indoor.xlsx'
 
 results_df.to_excel(output_file_name, index=False, sheet_name='Indoor_Temp_Simulation')
 print ("Simulation complete. Hopefully no errors this time!!!!")
+
+# -------------------------------------------------------------
+# PLOTTING FROM results_df (no re-simulation)
+# -------------------------------------------------------------
+
+# Sort labels by R-value
+sorted_labels = sorted(columns, key=lambda x: R_eff_dict[x])
+low_label  = sorted_labels[0]
+mid_label  = sorted_labels[len(sorted_labels)//2]
+high_label = sorted_labels[-1]
+
+# Map labels to row indices in results_df
+label_to_row = {label: i for i, label in enumerate(columns)}
+
+# Extract indoor temperature series directly from results_df
+low_row  = results_df.iloc[label_to_row[low_label]].to_numpy()
+mid_row  = results_df.iloc[label_to_row[mid_label]].to_numpy()
+high_row = results_df.iloc[label_to_row[high_label]].to_numpy()
+
+# First element is R_eff_total; the rest are hourly temps
+T_low  = low_row[1:]
+T_mid  = mid_row[1:]
+T_high = high_row[1:]
+
+# Time vector
+hours = np.arange(len(T_low))
+
+# Outdoor temp (choose any column; the outdoor index is consistent)
+T_outdoor = T_out_df[low_label].to_numpy().astype(float)
+
+plt.figure(figsize=(12, 6))
+
+# Outdoor in bold red
+plt.plot(
+    hours, T_outdoor,
+    color='red', linewidth=2.2,
+    label='Outdoor Temperature'
+)
+
+# Indoor temperatures in three blue shades
+plt.plot(
+    hours, T_low,
+    color='#9ecae1', linewidth=1.4,
+    label=f'Indoor (Low R: {R_eff_dict[low_label]:.3f})'
+)
+plt.plot(
+    hours, T_mid,
+    color='#4292c6', linewidth=1.4,
+    label=f'Indoor (Mid R: {R_eff_dict[mid_label]:.3f})'
+)
+plt.plot(
+    hours, T_high,
+    color='#084594', linewidth=1.4,
+    label=f'Indoor (High R: {R_eff_dict[high_label]:.3f})'
+)
+
+plt.xlabel("Time [hours]")
+plt.ylabel("Temperature [°C]")
+plt.title("Indoor vs Outdoor Temperature Over One Year")
+plt.grid(True, alpha=0.25)
+plt.legend()
+plt.tight_layout()
+plt.show()

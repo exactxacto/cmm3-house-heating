@@ -21,7 +21,7 @@ HOUSE_HEIGHT = 3.0
 WALL_AREA = 2 * HOUSE_HEIGHT * (HOUSE_WIDTH + HOUSE_LENGTH) # 78.0 m²
 
 
-input_file = 'R_results_v2.txt' 
+input_file = 'thermal_resistance\out\R_results_Expanded Polystyrene (EPS)_mineral_wool_Polyurethane (PUR).txt' 
 output_file = 'combinations_and_costs.csv'
 
 
@@ -41,7 +41,7 @@ except Exception as e:
 eps_col = 'Expanded Polystyrene (EPS)_thickness(m)'
 mw_col = 'mineral_wool_thickness(m)'
 pur_col = 'Polyurethane (PUR)_thickness(m)'
-r_col_bad = 'R(m添/W)'
+r_col_bad = 'R(mÂ²K/W)'
 r_col_good = 'R(m²K/W)'
 
 if r_col_bad in df.columns:

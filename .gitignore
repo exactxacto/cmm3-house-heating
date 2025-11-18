@@ -2,3 +2,8 @@ references/Code architecture diagram.png
 T_out_effective_temperatures.xlsx
 simulation_results_T_indoor.xlsx
 fourier_series_plot.png
+cost_vs_rvalue_plot.png
+combinations_and_costs.csv
+material_fraction_plot.png
+root_finding_plot.png
+timeseries_comparison_plot.png
