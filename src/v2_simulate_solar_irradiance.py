@@ -55,7 +55,7 @@ def T_amb(t_hours):
     return eval(
         corrected_equation_string, 
         {'np': np}, 
-        {'t_hours': t_hours}
+        {'t': t_hours}
         )
 
 
