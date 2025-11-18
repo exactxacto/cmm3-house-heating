@@ -8,6 +8,14 @@ import matplotlib.pyplot as plt
 r_val = np.loadtxt('thermal_resistance/out/R_results_Expanded Polystyrene (EPS)_mineral_wool_Polyurethane (PUR).txt', usecols=(3,), skiprows=1)
 print (r_val)
 
+# Load Fourier series equation for ambient temperature from file
+with open('MIDAS/out/symbolic_fourier_temperature.txt', 'r') as f:
+        fourier_equation_string = f.read().strip()
+print (fourier_equation_string)
+corrected_equation_string = fourier_equation_string.replace('sin', 'np.sin')
+corrected_equation_string = corrected_equation_string.replace('cos', 'np.cos')
+corrected_equation_string = corrected_equation_string.replace('pi', 'np.pi')
+
 # Load solar irradiance data from file
 try:
     df_q_val = pd.read_excel('SolRad.xlsx', skiprows=2, usecols=[4], header=None)
@@ -44,17 +52,11 @@ time_hours = np.arange(n_hours)          # time in hours
 time_seconds = time_hours * 3600         # convert to seconds for Fourier-based functions
 
 def T_amb(t_hours):
-    return (
-        (2.262878 * np.cos(2 * np.pi * 1.000000 * t_hours + 2.485389) +
-    1.242691 * np.cos(2 * np.pi * 0.041096 * t_hours - 1.655145) +
-    0.802844 * np.cos(2 * np.pi * 0.104110 * t_hours - 1.893115) +
-    0.633184 * np.cos(2 * np.pi * 0.021918 * t_hours + 0.764027) +
-    0.628524 * np.cos(2 * np.pi * 0.032877 * t_hours - 3.075678) +
-    0.568896 * np.cos(2 * np.pi * 0.068493 * t_hours - 1.718715) +
-    0.560489 * np.cos(2 * np.pi * 0.117808 * t_hours - 1.980469) +
-    0.548525 * np.cos(2 * np.pi * 0.049315 * t_hours - 1.570210)
-    )
-    )
+    return eval(
+        corrected_equation_string, 
+        {'np': np}, 
+        {'t_hours': t_hours}
+        )
 
 
 # Evaluate hourly
