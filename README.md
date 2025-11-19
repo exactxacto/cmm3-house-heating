@@ -49,7 +49,7 @@
 
 ## (ii) Order
 
-To execute the project directory, the above scripts must be run in that sequential order. For easy the order is also listed below:
+To execute the project directory, the above scripts must be run in that sequential order. For ease the order is also listed below:
 
 1. thermal_resistance/src/main.py
 2. MIDAS/interpolateV3
