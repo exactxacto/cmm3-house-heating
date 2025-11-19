@@ -11,8 +11,6 @@ MIDAS
 
 Comfort Cost Analysis
 
-References
-
 v2_simulate_solar_irradiance: Takes the generated ambient temperature Fourier equation, solar heat flux values and outputs a Pandas DataFrame with effective outdoor temperature values and 
 an appended list of R-values.
 
