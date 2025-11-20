@@ -3,14 +3,25 @@ from scipy.integrate import solve_ivp
 from scipy.interpolate import interp1d
 import pandas as pd
 import matplotlib.pyplot as plt
+from pathlib import Path
 
-# Load thermal resistance data from file
-r_val = np.loadtxt('thermal_resistance/out/R_results_Expanded Polystyrene (EPS)_mineral_wool_Polyurethane (PUR).txt', usecols=(3,), skiprows=1)
+
+script_dir = Path(__file__).resolve().parent   
+root = script_dir.parent                       
+
+file_path = root / 'thermal_resistance' / 'out' / 'R_results_Expanded Polystyrene (EPS)_mineral_wool_Polyurethane (PUR).txt'
+solrad_path = root / "SolRad.xlsx"
+
+r_val = np.loadtxt(file_path, usecols=(3,), skiprows=1)
 print (r_val)
 
+
+file_path2 = root / 'MIDAS' / 'out' / 'symbolic_fourier_temperature.txt'
+
+with open(file_path2, 'r', encoding='utf-8') as f:
+    fourier_equation_string = f.read().strip()
 # Load Fourier series equation for ambient temperature from file
-with open('MIDAS/out/symbolic_fourier_temperature.txt', 'r') as f:
-        fourier_equation_string = f.read().strip()
+
 print (fourier_equation_string)
 corrected_equation_string = fourier_equation_string.replace('sin', 'np.sin')
 corrected_equation_string = corrected_equation_string.replace('cos', 'np.cos')
@@ -18,7 +29,7 @@ corrected_equation_string = corrected_equation_string.replace('pi', 'np.pi')
 
 # Load solar irradiance data from file
 try:
-    df_q_val = pd.read_excel('SolRad.xlsx', skiprows=2, usecols=[4], header=None)
+    df_q_val = pd.read_excel(solrad_path, skiprows=2, usecols=[4], header=None)
     q_val = df_q_val.iloc[:, 0].values
     if len(q_val) == 17520: #to avoid the random error where data ended up being half hourly????
         q_val = q_val.reshape(-1, 2).mean(axis=1)
@@ -98,6 +109,7 @@ print("T_out_df shape:", T_out_df.shape)
 print("First few rows:\n", T_out_df.head())
 print("Index length:", len(T_out_df.index))
 print("Columns:", len(T_out_df.columns))
+print("Simulation running... might take 2 minutes go get some coffee")
 
 output_path = "T_out_effective_temperatures.xlsx"
 

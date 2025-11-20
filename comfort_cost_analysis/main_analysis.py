@@ -12,6 +12,8 @@ import analysis_functions as af
 # --- MAIN EXECUTION ---
 if __name__ == "__main__":
     
+    print("Last simulation running, more coffee?")
+    
     # Step 1: Load the two data files
     temp_df, cost_df = af.load_data()
     print(f"Loaded {len(temp_df)} R-value simulations.")

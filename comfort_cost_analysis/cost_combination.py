@@ -6,6 +6,7 @@ Conbinations and Costs
 import pandas as pd
 import sys
 import numpy as np 
+from pathlib import Path
 
 # Costs per cubic meter (£/m³) 
 COSTS = {
@@ -20,9 +21,11 @@ HOUSE_LENGTH = 4.0
 HOUSE_HEIGHT = 3.0
 WALL_AREA = 2 * HOUSE_HEIGHT * (HOUSE_WIDTH + HOUSE_LENGTH) # 78.0 m²
 
+script_dir = Path(__file__).resolve().parent   
+root = script_dir.parent         
 
-input_file = 'thermal_resistance\out\R_results_Expanded Polystyrene (EPS)_mineral_wool_Polyurethane (PUR).txt' 
-output_file = 'combinations_and_costs.csv'
+input_file = root / 'thermal_resistance' / 'out' / 'R_results_Expanded Polystyrene (EPS)_mineral_wool_Polyurethane (PUR).txt'
+output_file = root / 'combinations_and_costs.csv'
 
 
 try:

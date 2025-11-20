@@ -5,19 +5,22 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from scipy.optimize import brentq
 import sys
-import seaborn as sns
-import plotly.express as px
+from pathlib import Path
 
 # 1. DEFINE CONSTANTS 
 COMFORT_LOW = 12
 COMFORT_HIGH = 18
 TARGET_COMFORT_HOURS = 2500
 
+script_dir = Path(__file__).resolve().parent   
+root = script_dir.parent  
+
 # 2. DATA PROCESSING FUNCTIONS 
 
 def load_data():
     try:
-        temp_df = pd.read_excel("simulation_results_T_indoor.xlsx")
+        file_path = root / "simulation_results_T_indoor.xlsx"
+        temp_df = pd.read_excel(file_path)
         
     except FileNotFoundError:
         print("\n--- ERROR ---")
@@ -30,7 +33,8 @@ def load_data():
         sys.exit()
 
     try:
-        cost_df = pd.read_csv("combinations_and_costs.csv")
+        file_path2 = root / "combinations_and_costs.csv"
+        cost_df = pd.read_csv(file_path2)
         
     except FileNotFoundError:
         print("\n--- ERROR ---")

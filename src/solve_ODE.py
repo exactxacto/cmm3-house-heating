@@ -2,8 +2,12 @@ import numpy as np
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 import pandas as pd
+from pathlib import Path
 
 from v2_simulate_solar_irradiance import T_out_df, R_eff_dict, time_hours, n_hours
+
+script_dir = Path(__file__).resolve().parent   
+root = script_dir.parent 
 
 try:
     T_out_df  # defined in v2_simulate_solar_irradiance
@@ -93,9 +97,9 @@ results_array = np.vstack(output_rows)  # shape = (n_materials, n_hours + 1)
 time_columns = [f'Hour {int(t)}' for t in t_hourly]
 all_columns = ['R_eff_total'] + time_columns
 results_df = pd.DataFrame(results_array, columns=all_columns)
-output_file_name = 'simulation_results_T_indoor.xlsx' 
+output_file_name = 'simulation_results_T_indoor.xlsx'
 
-results_df.to_excel(output_file_name, index=False, sheet_name='Indoor_Temp_Simulation')
+results_df.to_excel(root / 'simulation_results_T_indoor.xlsx', index=False, sheet_name='Indoor_Temp_Simulation')
 print ("Simulation complete. Hopefully no errors this time!!!!")
 
 # -------------------------------------------------------------
