@@ -6,7 +6,7 @@
 * Reads material thermal conductivities.
 * Generates all combinations of insulation layers and thicknesses.
 * Computes total thermal resistance (R-value) for each configuration.
-* Outputs results to: thermal_resistance/out/R_results_Expanded Polystyrene(EPS)_mineral_wool_Polyurethane (PUR).txt
+* Outputs results to: thermal_resistance/out/R_results_Expanded Polystyrene(EPS)_mineral_wool_Polyurethane (PUR).
 
 ### 2. MIDAS/interpolateV3.py
 
