@@ -99,7 +99,7 @@ results_df.to_excel(output_file_name, index=False, sheet_name='Indoor_Temp_Simul
 print ("Simulation complete. Hopefully no errors this time!!!!")
 
 # -------------------------------------------------------------
-# PLOTTING FROM results_df (no re-simulation)
+# PLOTTING FROM results_df
 # -------------------------------------------------------------
 
 # Sort labels by R-value
@@ -121,10 +121,10 @@ T_low  = low_row[1:]
 T_mid  = mid_row[1:]
 T_high = high_row[1:]
 
-# Time vector
+# Time
 hours = np.arange(len(T_low))
 
-# Outdoor temp (choose any column; the outdoor index is consistent)
+# Outdoor temp
 T_outdoor = T_out_df[low_label].to_numpy().astype(float)
 
 plt.figure(figsize=(12, 6))
@@ -136,7 +136,7 @@ plt.plot(
     label='Outdoor Temperature'
 )
 
-# Indoor temperatures in three blue shades
+# Indoor temperatures in blue 
 plt.plot(
     hours, T_low,
     color='#9ecae1', linewidth=1.4,
